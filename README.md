@@ -17,7 +17,7 @@ IP-CCTV cameras mark students present automatically — detection and recognitio
 </p>
 
 <p align="center">
-  <img src="docs/media/demo.gif" alt="Live classroom demo: every face is detected and recognised on the NPU (faces blurred for privacy)" width="760">
+  <img src="docs/media/demo.gif" alt="Live classroom demo: faces are detected and recognised on the NPU" width="760">
 </p>
 
 <p align="center">
@@ -45,12 +45,12 @@ IP-CCTV cameras mark students present automatically — detection and recognitio
 
 <table>
   <tr>
-    <td width="50%"><img src="docs/media/screenshots/01-live-recognition.jpg" alt="Live face recognition in a classroom"><br><sub><b>Live recognition</b> — every face in the room is detected and matched in real time</sub></td>
-    <td width="50%"><img src="docs/media/screenshots/02-multi-student-tracking.jpg" alt="Several students tracked at the same time"><br><sub><b>Many students at once</b> — dozens of faces tracked in every frame</sub></td>
+    <td width="50%"><img src="docs/media/screenshots/01-live-recognition.jpg" alt="Live face recognition in a classroom"><br><sub><b>Live recognition</b> — faces are boxed and named as students arrive</sub></td>
+    <td width="50%"><img src="docs/media/screenshots/02-multi-student-tracking.jpg" alt="Several students tracked at the same time"><br><sub><b>Many students at once</b> — every face in the room is tracked and matched</sub></td>
   </tr>
 </table>
 
-<sub>Frames from the demo video (<a href="docs/media/demo.mp4">docs/media/demo.mp4</a> — open it for the full 28-second run). Student faces and names are blurred for privacy.</sub>
+<sub>Frames from the demo video (<a href="docs/media/demo.mp4">docs/media/demo.mp4</a> — open it for the full 32-second run).</sub>
 
 <a id="architecture"></a>
 
