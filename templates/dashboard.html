@@ -1,0 +1,129 @@
+{% extends "base.html" %}
+{% block title %}Dashboard – BUP Attendance{% endblock %}
+{% block topbar_title %}Dashboard{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>Welcome, {{ session.name }} 👋</h1>
+    <div class="breadcrumb">
+      {% if session.role=='super_admin' %}Super Administrator – All Faculties
+      {% elif session.role=='dept_admin' %}Department Administrator – {{ session.dept }}
+      {% else %}Teacher – {{ session.dept }}{% endif %}
+    </div>
+  </div>
+  {% if session.role=='teacher' %}
+  <a href="{{ url_for('take_attendance') }}" class="btn btn-primary"><i class="fa-solid fa-camera"></i> Take Attendance</a>
+  {% endif %}
+</div>
+
+<!-- Stat Cards -->
+<div class="stats-grid">
+{% if session.role=='super_admin' %}
+  <div class="stat-card">
+    <div class="stat-icon" style="background:#eff6ff;"><i class="fa-solid fa-building" style="color:#1a3c6e;font-size:20px;"></i></div>
+    <div><div class="stat-val">{{ stats.faculties }}</div><div class="stat-lbl">Faculties</div></div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon" style="background:#fef3c7;"><i class="fa-solid fa-user-shield" style="color:#d97706;font-size:20px;"></i></div>
+    <div><div class="stat-val">{{ stats.dept_admins }}</div><div class="stat-lbl">Dept Admins</div></div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon" style="background:#f0fdf4;"><i class="fa-solid fa-chalkboard-user" style="color:#16a34a;font-size:20px;"></i></div>
+    <div><div class="stat-val">{{ stats.teachers }}</div><div class="stat-lbl">Teachers</div></div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon" style="background:#fdf4ff;"><i class="fa-solid fa-user-graduate" style="color:#9333ea;font-size:20px;"></i></div>
+    <div><div class="stat-val">{{ stats.students }}</div><div class="stat-lbl">Students</div></div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon" style="background:#fff1f2;"><i class="fa-solid fa-book-open" style="color:#e11d48;font-size:20px;"></i></div>
+    <div><div class="stat-val">{{ stats.courses }}</div><div class="stat-lbl">Courses</div></div>
+  </div>
+{% elif session.role=='dept_admin' %}
+  <div class="stat-card">
+    <div class="stat-icon" style="background:#f0fdf4;"><i class="fa-solid fa-chalkboard-user" style="color:#16a34a;font-size:20px;"></i></div>
+    <div><div class="stat-val">{{ stats.teachers }}</div><div class="stat-lbl">Teachers</div></div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon" style="background:#fdf4ff;"><i class="fa-solid fa-user-graduate" style="color:#9333ea;font-size:20px;"></i></div>
+    <div><div class="stat-val">{{ stats.students }}</div><div class="stat-lbl">Students</div></div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon" style="background:#fff1f2;"><i class="fa-solid fa-book-open" style="color:#e11d48;font-size:20px;"></i></div>
+    <div><div class="stat-val">{{ stats.courses }}</div><div class="stat-lbl">Courses</div></div>
+  </div>
+{% else %}
+  <div class="stat-card">
+    <div class="stat-icon" style="background:#fff1f2;"><i class="fa-solid fa-book-open" style="color:#e11d48;font-size:20px;"></i></div>
+    <div><div class="stat-val">{{ stats.my_courses }}</div><div class="stat-lbl">My Courses</div></div>
+  </div>
+{% endif %}
+</div>
+
+<!-- Faculty Cards (super admin) -->
+{% if session.role=='super_admin' %}
+<div class="card" style="margin-bottom:24px;">
+  <div class="card-header"><h3><i class="fa-solid fa-building"></i> BUP Faculties</h3></div>
+  <div class="card-body">
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px;">
+      {% for fcode, finfo in bup.items() %}
+      <div style="background:#f8fafc;border-radius:10px;padding:16px;border:1px solid #e5e7eb;">
+        <div style="font-weight:700;color:#1a3c6e;font-size:14px;">{{ fcode }}</div>
+        <div style="font-size:12.5px;color:#6b7280;margin-top:3px;">{{ finfo.name }}</div>
+        <div style="font-size:12px;color:#9ca3af;margin-top:5px;"><i class="fa-solid fa-building"></i> {{ finfo.building }}</div>
+        <div style="font-size:12px;color:#6b7280;margin-top:4px;"><i class="fa-solid fa-sitemap"></i> {{ finfo.departments|length }} Departments</div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<!-- Recent Attendance -->
+<div class="card">
+  <div class="card-header">
+    <h3><i class="fa-solid fa-clock-rotate-left"></i> Recent Attendance Records</h3>
+    <a href="{{ url_for('attendance_history') }}" class="btn btn-outline btn-sm">View All</a>
+  </div>
+  <div class="table-wrap">
+    {% if recent %}
+    <table>
+      <thead><tr><th>Date</th><th>Course</th><th>Batch/Section</th><th>Teacher</th><th>Present/Absent</th><th>Rate</th><th>Action</th></tr></thead>
+      <tbody>
+      {% for rec in recent %}
+      {% set rec_rate = rec.get('rate', 0) if rec is mapping else 0 %}
+      <tr>
+        <td>{{ rec.get('date','—') }}<br><small style="color:#9ca3af;">{{ rec.get('time','') }}</small></td>
+        <td><b>{{ rec.get('course_id','—') }}</b><br><small style="color:#6b7280;">{{ rec.get('course_name','') }}</small></td>
+        <td>{{ rec.get('batch','—') }} – Sec {{ rec.get('section','—') }}</td>
+        <td>{{ rec.get('teacher_name', rec.get('teacher','—')) }}</td>
+        <td>
+          <span class="badge badge-success">{{ rec.get('present', 0) }} Present</span>
+          <span class="badge badge-danger">{{ rec.get('absent', 0) }} Absent</span>
+        </td>
+        <td>
+          <span class="badge {% if rec_rate >= 75 %}badge-success{% elif rec_rate >= 50 %}badge-warning{% else %}badge-danger{% endif %}">{{ rec_rate }}%</span>
+        </td>
+        <td><div style="display:flex;gap:6px;">
+          <a href="{{ url_for('view_record', fname=rec.get('filename','')) }}" class="btn btn-outline btn-sm btn-icon" title="View"><i class="fa-solid fa-eye"></i></a>
+          <a href="{{ url_for('edit_record', fname=rec.get('filename','')) }}" class="btn btn-outline btn-sm btn-icon" title="Edit"><i class="fa-solid fa-pen"></i></a>
+          <a href="{{ url_for('download_record', fname=rec.get('filename','')) }}" class="btn btn-outline btn-sm btn-icon" title="Download CSV"><i class="fa-solid fa-download"></i></a>
+          {% if session.role == 'dept_admin' %}
+          <form method="POST" action="{{ url_for('delete_record', fname=rec.get('filename','')) }}" style="display:inline-flex;"
+                onsubmit="this.next.value = location.pathname; return confirm('Delete the {{ rec.get('course_id','') }} attendance of {{ rec.get('date','') }} {{ rec.get('time','') }}? It disappears from the history for everyone.')">
+            <input type="hidden" name="next"/>
+            <button type="submit" class="btn btn-danger btn-sm btn-icon" title="Delete"><i class="fa-solid fa-trash"></i></button>
+          </form>
+          {% endif %}
+        </div></td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div class="empty-state"><i class="fa-solid fa-calendar-xmark"></i><p>No attendance records yet.</p></div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

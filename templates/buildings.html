@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% block title %}Buildings & Cameras{% endblock %}
+{% block topbar_title %}Buildings & Camera Management{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div><h1>Buildings & Cameras</h1>
+    <div class="breadcrumb"><a href="{{ url_for('dashboard') }}">Dashboard</a> › Buildings</div>
+  </div>
+</div>
+<div class="alert alert-info"><i class="fa-solid fa-circle-info"></i> Each room has 2 RTSP IP cameras. Click <b>Edit Cameras</b> to set a camera's URL and choose its stream (main / sub) and resolution — applied on the camera itself. Rooms with a class running are locked.</div>
+
+{% for fac_code, bldg in buildings.items() %}
+<div class="card" style="margin-bottom:20px;">
+  <div class="card-header">
+    <h3><i class="fa-solid fa-building"></i> {{ bup[fac_code].building }} – <span style="color:var(--text-muted);font-weight:500;">{{ bup[fac_code].name }}</span></h3>
+    <span class="badge badge-primary">{{ fac_code }}</span>
+  </div>
+  <div class="card-body">
+    <div style="display:flex;flex-direction:column;gap:10px;">
+      {% for floor_str, floor_data in bldg.floors.items() %}
+      {% set floor_int = floor_str|int %}
+      {# Find which dept this floor belongs to #}
+      {% set dept_name = '' %}
+      {% for dcode, dinfo in bup[fac_code].departments.items() %}
+        {% if floor_int in dinfo.floors %} {% set dept_name = dcode + ' – ' + dinfo.name %} {% endif %}
+      {% endfor %}
+      <details style="border:1px solid var(--border);border-radius:8px;overflow:hidden;">
+        <summary style="padding:12px 16px;cursor:pointer;background:#f8fafc;font-weight:600;list-style:none;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+          <i class="fa-solid fa-layer-group" style="color:var(--primary);"></i>
+          Floor {{ floor_str }}
+          {% if dept_name %}<span class="badge badge-info" style="font-weight:500;">{{ dept_name }}</span>{% endif %}
+          {% set ns = namespace(n=0) %}{% for r in floor_data.rooms %}{% if (fac_code ~ '/' ~ floor_str ~ '/' ~ r) in busy %}{% set ns.n = ns.n + 1 %}{% endif %}{% endfor %}
+          {% if ns.n %}<span class="badge badge-danger" style="font-weight:600;"><i class="fa-solid fa-lock"></i> {{ ns.n }} in session</span>{% endif %}
+          <span style="margin-left:auto;color:var(--text-muted);font-size:12px;">{{ floor_data.rooms|length }} Classrooms</span>
+        </summary>
+        <div style="padding:14px 16px;">
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;">
+            {% for room_num, cams in floor_data.rooms.items() %}
+            {% set b = busy.get(fac_code ~ '/' ~ floor_str ~ '/' ~ room_num) %}
+            {% set st = cams.camera_settings or {} %}
+            <div style="background:{% if b %}#fff7f7{% else %}#fff{% endif %};border:1px solid {% if b %}#fecaca{% else %}var(--border){% endif %};border-radius:8px;padding:14px;">
+              <div style="display:flex;align-items:center;gap:6px;font-weight:700;font-size:14px;margin-bottom:8px;">
+                <i class="fa-solid fa-door-open"></i> Room {{ room_num }}
+                {% if b %}<span class="badge badge-danger" style="margin-left:auto;"><i class="fa-solid fa-lock"></i> In session</span>{% endif %}
+              </div>
+              {% for cam in ['camera1', 'camera2'] %}
+              {% set c = st.get(cam) %}
+              {% set tv = (cams.test_videos or {}).get(cam) if (fac_code ~ '/' ~ floor_str)|upper in video_floors else none %}
+              <div style="font-size:12px;color:var(--text-muted);margin-bottom:3px;">
+                {% if tv and tv.active %}
+                <i class="fa-solid fa-film" style="color:var(--warning);"></i>
+                Cam {{ loop.index }}: <b style="color:#92400e;">Recorded video</b> · {{ tv.width }}×{{ tv.height }}
+                {% else %}
+                <i class="fa-solid fa-video" style="color:{% if cams[cam] %}var(--success){% else %}var(--danger){% endif %};"></i>
+                Cam {{ loop.index }}:
+                {% endif %}
+                {% if tv and tv.active %}{% elif cams[cam] %}<code style="font-size:11px;">{{ cams[cam]|camhost }}</code>
+                  · {% if c %}{{ 'Main' if c.stream == 'main' else 'Sub' }}{% if c.width %} {{ c.width }}×{{ c.height }}{% endif %}{% else %}default stream{% endif %}
+                {% else %}Not configured{% endif %}
+              </div>
+              {% endfor %}
+              {% if b %}
+              <div style="font-size:12px;color:#7f1d1d;margin:6px 0 8px;">{{ b.teacher_name }} · {{ b.course_id }} · since {{ b.since }}</div>
+              <form method="POST" action="{{ url_for('admin_end_session') }}" style="margin-bottom:6px;"
+                    onsubmit="return confirm('End the class in Room {{ room_num }}? The teacher will be asked to review and save the attendance.')">
+                <input type="hidden" name="room_key" value="{{ fac_code ~ '/' ~ floor_str ~ '/' ~ room_num }}"/>
+                <button class="btn btn-danger btn-sm" style="width:100%;justify-content:center;"><i class="fa-solid fa-stop"></i> End class</button>
+              </form>
+              {% else %}<div style="height:7px;"></div>{% endif %}
+              <a href="{{ url_for('edit_room', faculty_code=fac_code, floor=floor_str, room=room_num) }}" class="btn btn-outline btn-sm" style="width:100%;justify-content:center;">
+                <i class="fa-solid fa-pen"></i> Edit Cameras
+              </a>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+      </details>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+{% endfor %}
+{% endblock %}

@@ -1,0 +1,5 @@
+pytest>=8.0
+requests>=2.31
+# Baseline only: tests/tools run the ORIGINAL Python pipeline (cv2 + dx_engine) in a
+# subprocess to compare accuracy and speed. The app itself never imports these.
+opencv-python-headless>=4.8

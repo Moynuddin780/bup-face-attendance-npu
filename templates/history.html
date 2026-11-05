@@ -1,0 +1,143 @@
+{% extends "base.html" %}
+{% block title %}Attendance History{% endblock %}
+{% block topbar_title %}Attendance History{% endblock %}
+{% block extra_head %}
+<style>
+  .hx-filters{display:flex;flex-direction:column;gap:12px;}
+  .hx-line{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+  .hx-line > b{width:70px;font-size:12px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;}
+  .hx-pill{border:1px solid var(--border);background:#fff;color:#334155;padding:7px 14px;border-radius:999px;font:600 13px/1 inherit;
+    cursor:pointer;display:inline-flex;align-items:center;gap:7px;transition:all .15s;}
+  .hx-pill small{font-weight:600;color:var(--text-muted);background:#f1f5f9;border-radius:999px;padding:2px 7px;font-size:11px;}
+  .hx-pill:hover{border-color:var(--primary-light);}
+  .hx-pill.on{background:var(--primary);border-color:var(--primary);color:#fff;}
+  .hx-pill.on small{background:rgba(255,255,255,.2);color:#fff;}
+  .hx-search{max-width:340px;}
+  .hx-course{margin-bottom:16px;}
+  .hx-course .card-header{background:linear-gradient(90deg,#f8fafc,#fff);}
+  .hx-course h3{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+  .hx-course h3 small{font-weight:500;color:var(--text-muted);font-size:13px;}
+  .hx-sum{display:flex;gap:6px;flex-wrap:wrap;}
+  .hx-actions{display:flex;gap:6px;align-items:center;}
+  .hx-actions form{display:inline-flex;}
+  .hx-none{display:none;}
+</style>
+{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div><h1>Attendance History</h1><div class="breadcrumb"><a href="{{ url_for('dashboard') }}">Dashboard</a> › History</div></div>
+</div>
+{% if records %}
+<div class="card" style="margin-bottom:16px;">
+  <div class="card-body hx-filters">
+    <div class="hx-line"><b>Batch</b>
+      {% for b, n in batches %}<button type="button" class="hx-pill" data-batch="{{ b }}">Batch {{ b }} <small>{{ n }}</small></button>{% endfor %}
+      <button type="button" class="hx-pill" data-batch="">All batches <small>{{ records|length }}</small></button>
+    </div>
+    <div class="hx-line" id="hx-sections"><b>Section</b></div>
+    <div class="hx-line"><b>Search</b>
+      <input class="form-control hx-search" id="search" placeholder="Course, teacher, date…" oninput="hxApply()"/>
+    </div>
+  </div>
+</div>
+
+{# course-wise: one card per course, its classes newest first #}
+{% for cid, recs in records|groupby('course_id') %}
+<div class="card hx-course" data-course="{{ cid }}">
+  <div class="card-header">
+    <h3><i class="fa-solid fa-book" style="color:var(--primary);"></i> {{ cid }} <small>{{ recs[0].get('course_name','') }}</small></h3>
+    <div class="hx-sum"><span class="badge badge-info hx-count"></span></div>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Date</th><th>Batch · Section</th><th>Teacher</th><th>Present</th><th>Absent</th><th>Rate</th><th>Actions</th></tr></thead>
+      <tbody>
+      {% for rec in recs|sort(attribute='date', reverse=True) %}
+      {% set r_rate = rec.get('rate', 0) %}
+      {% set r_fname = rec.get('filename','') %}
+      <tr class="hx-row" data-batch="{{ rec.get('batch','') }}" data-section="{{ rec.get('section','') }}">
+        <td><b>{{ rec.get('date','—') }}</b><br><small style="color:#9ca3af;">{{ rec.get('time','') }}</small>
+          {% if rec.get('source') %}<span class="badge badge-warning" title="{{ rec.get('source') }}"><i class="fa-solid fa-film"></i> Test</span>{% endif %}</td>
+        <td>{{ rec.get('batch','—') }} · Sec {{ rec.get('section','—') }}</td>
+        <td>{{ rec.get('teacher_name', rec.get('teacher','—')) }}</td>
+        <td><span class="badge badge-success">{{ rec.get('present',0) }}</span></td>
+        <td><span class="badge badge-danger">{{ rec.get('absent',0) }}</span></td>
+        <td><span class="badge {% if r_rate >= 75 %}badge-success{% elif r_rate >= 50 %}badge-warning{% else %}badge-danger{% endif %}">{{ r_rate }}%</span></td>
+        <td><div class="hx-actions">
+          <a href="{{ url_for('view_record', fname=r_fname) }}" class="btn btn-outline btn-sm btn-icon" title="View"><i class="fa-solid fa-eye"></i></a>
+          <a href="{{ url_for('edit_record', fname=r_fname) }}" class="btn btn-outline btn-sm btn-icon" title="Edit"><i class="fa-solid fa-pen"></i></a>
+          <a href="{{ url_for('download_record', fname=r_fname) }}" class="btn btn-outline btn-sm btn-icon" title="Download CSV"><i class="fa-solid fa-download"></i></a>
+          {% if can_delete %}
+          <form method="POST" action="{{ url_for('delete_record', fname=r_fname) }}"
+                onsubmit="this.next.value = location.pathname + location.search; return confirm('Delete the {{ cid }} attendance of {{ rec.get('date','') }} {{ rec.get('time','') }} (Batch {{ rec.get('batch','') }} · Section {{ rec.get('section','') }})? It disappears from the history for everyone.')">
+            <input type="hidden" name="next"/>
+            <button type="submit" class="btn btn-danger btn-sm btn-icon" title="Delete"><i class="fa-solid fa-trash"></i></button>
+          </form>
+          {% endif %}
+        </div></td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endfor %}
+<div class="card" id="hx-empty" style="display:none;"><div class="empty-state"><i class="fa-solid fa-filter-circle-xmark"></i><p>No classes for this batch and section.</p></div></div>
+
+<script>
+(function(){
+  const rows = [...document.querySelectorAll('.hx-row')];
+  const params = new URLSearchParams(location.search);
+  let batch = params.has('batch') ? params.get('batch') : (document.querySelector('.hx-pill[data-batch]')?.dataset.batch || '');
+  let section = params.get('section') || '';
+  const secBox = document.getElementById('hx-sections');
+
+  function sectionsOf(b){   // the sections this batch has classes for: A, B, and A+B for joint classes
+    const set = new Set(rows.filter(r => !b || r.dataset.batch === b).map(r => r.dataset.section).filter(Boolean));
+    return [...set].sort((x, y) => x.length - y.length || x.localeCompare(y));
+  }
+  function drawSections(){
+    const list = sectionsOf(batch);
+    if (section && !list.includes(section)) section = '';
+    secBox.querySelectorAll('.hx-pill').forEach(p => p.remove());
+    ['', ...list].forEach(x => {
+      const n = rows.filter(r => (!batch || r.dataset.batch === batch) && (!x || r.dataset.section === x)).length;
+      const b = document.createElement('button');
+      b.type = 'button'; b.className = 'hx-pill' + (x === section ? ' on' : '');
+      b.innerHTML = (x ? (x.includes('+') ? 'Sections ' + x + ' (joint)' : 'Section ' + x) : 'All sections') + ` <small>${n}</small>`;
+      b.onclick = () => { section = x; drawSections(); hxApply(); };
+      secBox.appendChild(b);
+    });
+  }
+  window.hxApply = function(){
+    const q = document.getElementById('search').value.trim().toLowerCase();
+    document.querySelectorAll('.hx-pill[data-batch]').forEach(p => p.classList.toggle('on', p.dataset.batch === batch));
+    let any = 0;
+    document.querySelectorAll('.hx-course').forEach(card => {
+      let n = 0;
+      card.querySelectorAll('.hx-row').forEach(r => {
+        const ok = (!batch || r.dataset.batch === batch) && (!section || r.dataset.section === section)
+                   && (!q || (card.dataset.course + ' ' + r.textContent).toLowerCase().includes(q));
+        r.style.display = ok ? '' : 'none';
+        n += ok;
+      });
+      card.style.display = n ? '' : 'none';
+      card.querySelector('.hx-count').textContent = n + (n === 1 ? ' class' : ' classes');
+      any += n;
+    });
+    document.getElementById('hx-empty').style.display = any ? 'none' : '';
+    const u = new URLSearchParams();
+    if (batch) u.set('batch', batch); else u.set('batch', '');
+    if (section) u.set('section', section);
+    history.replaceState(null, '', location.pathname + '?' + u);
+  };
+  document.querySelectorAll('.hx-pill[data-batch]').forEach(p => p.addEventListener('click', () => {
+    batch = p.dataset.batch; drawSections(); hxApply();
+  }));
+  drawSections(); hxApply();
+})();
+</script>
+{% else %}
+<div class="card"><div class="empty-state"><i class="fa-solid fa-calendar-xmark"></i><p>No attendance records found.</p></div></div>
+{% endif %}
+{% endblock %}

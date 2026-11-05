@@ -1,0 +1,61 @@
+# ==========================================================================
+# BUP Face Attendance — files that must NEVER be committed
+# ==========================================================================
+
+# --- secrets and local configuration (copy .env.example to .env) ----------
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.crt
+
+# --- runtime data: student photos, embeddings, databases, attendance records (PRIVATE) ---
+/data/
+/db/
+/uploads/
+/attendance_history/
+/cloud_backup/
+/bup_db.json
+/bup_db.json.bak*
+*.npz
+
+# --- session logs, pid files ------------------------------------------------
+/*-session.*
+/*-stream.jsonl
+/session.log
+*.log
+*.pid
+
+# --- NPU models and vendor binaries (large / licensed — see models/README.md) ---
+/models/*
+!/models/README.md
+*.dxnn
+/docker/vendor/
+
+# DEEPX dx_app sources are licensed to DEEPX customers only — restore them locally
+# (see cpp/third_party/dxapp/VENDORED.md); never publish them.
+/cpp/third_party/dxapp/*
+!/cpp/third_party/dxapp/VENDORED.md
+
+# --- build output and caches ------------------------------------------------
+/build/
+/bin/
+*.so
+.venv/
+venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# --- local tool binaries and test media (classroom footage) ----------------
+/tools/.bin/
+/tools/.run/
+/tests/media/
+# screenshots with real students' faces and names
+/tests/artifacts/
+
+# --- editors / OS -------------------------------------------------------------
+.DS_Store
+.idea/
+.vscode/

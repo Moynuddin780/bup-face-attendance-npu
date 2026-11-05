@@ -1,0 +1,422 @@
+{% extends "base.html" %}
+{% block title %}Edit Room Cameras{% endblock %}
+{% block topbar_title %}Edit Room Cameras{% endblock %}
+{% block extra_head %}
+<style>
+  .cam-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,380px),1fr));gap:20px;align-items:start;}
+  .cam-status{font-size:12px;font-weight:600;padding:3px 10px;border-radius:20px;background:#f1f5f9;color:var(--text-muted);white-space:nowrap;}
+  .cam-status.ok{background:#dcfce7;color:#166534;}
+  .cam-status.err{background:#fee2e2;color:#991b1b;}
+  .cam-status.busy{background:#e0f2fe;color:#075985;}
+  .cam-status.warn{background:#fef3c7;color:#92400e;}
+  .cam-meta.warn{color:#92400e;}
+  .url-row{display:flex;gap:8px;}
+  .url-row .form-control{flex:1;min-width:0;}
+  .cam-meta{font-size:12.5px;color:var(--text-muted);margin:6px 0 2px;min-height:18px;}
+  .cam-meta.err{color:var(--danger);}
+  .seg{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;}
+  .seg button{padding:10px 12px;border:1px solid var(--border);border-radius:8px;background:#fff;cursor:pointer;text-align:left;transition:all .15s;font:inherit;}
+  .seg button b{display:block;font-size:14px;color:var(--text);}
+  .seg button small{display:block;font-size:11.5px;color:var(--text-muted);margin-top:2px;font-variant-numeric:tabular-nums;}
+  .seg button.on{border-color:var(--primary);background:#eff6ff;box-shadow:0 0 0 2px rgba(26,60,110,.12);}
+  .seg button.on b{color:var(--primary);}
+  .seg button:disabled{opacity:.5;cursor:not-allowed;}
+  .field-help{font-size:12px;color:var(--text-muted);margin-top:6px;line-height:1.45;}
+  .spin{display:inline-block;width:12px;height:12px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;animation:spin .7s linear infinite;vertical-align:-1px;}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .rtsp-panel.off{opacity:.45;}
+  .rtsp-off-note{display:none;font-size:12px;color:#92400e;background:#fffbeb;border:1px solid #fde68a;border-radius:6px;padding:6px 10px;margin-bottom:10px;}
+  .rtsp-panel.off .rtsp-off-note{display:block;}
+  .video-panel{border:1px dashed #f59e0b;background:#fffdf5;border-radius:10px;padding:12px;margin-bottom:16px;}
+  .video-cur{display:flex;gap:12px;align-items:flex-start;margin-bottom:10px;}
+  .video-cur img{width:132px;max-width:40%;aspect-ratio:16/9;object-fit:cover;border-radius:6px;background:#111;flex-shrink:0;}
+  .video-cur .meta{font-size:12.5px;color:var(--text-muted);line-height:1.5;min-width:0;}
+  .video-cur .meta b{color:var(--text);word-break:break-all;}
+  .drop{display:flex;align-items:center;justify-content:center;gap:8px;padding:14px;border:2px dashed var(--border);border-radius:8px;cursor:pointer;font-size:13px;color:var(--text-muted);text-align:center;transition:all .15s;}
+  .drop:hover,.drop.over{border-color:var(--primary);color:var(--primary);background:#eff6ff;}
+  .prog{display:none;margin-top:10px;}
+  .prog.on{display:block;}
+  .prog .bar{height:8px;background:#e5e7eb;border-radius:6px;overflow:hidden;}
+  .prog .bar i{display:block;height:100%;width:0;background:var(--primary);transition:width .2s;}
+  .prog .txt{display:flex;justify-content:space-between;gap:8px;font-size:12px;color:var(--text-muted);margin-top:5px;font-variant-numeric:tabular-nums;}
+  .video-err{color:var(--danger);font-size:12.5px;margin-top:8px;}
+  .video-panel[hidden],.video-cur[hidden],.video-err[hidden]{display:none;}
+  @media(max-width:900px){
+    .seg button{padding:9px 10px;}
+    .cam-meta{word-break:break-word;}
+    .alert code{word-break:break-all;}
+  }
+</style>
+{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div><h1>Room {{ room_num }} – Cameras</h1>
+    <div class="breadcrumb"><a href="{{ url_for('dashboard') }}">Dashboard</a> › <a href="{{ url_for('buildings') }}">Buildings</a> › Room {{ room_num }}</div>
+  </div>
+  <span class="badge badge-info" style="font-size:13px;padding:6px 12px;">{{ bup[faculty_code].building }} · Floor {{ floor }} · Room {{ room_num }}</span>
+</div>
+
+{% if busy %}
+<div class="alert alert-warning"><i class="fa-solid fa-lock"></i>
+  <span>A class is running in this room: <b>{{ busy.teacher_name }}</b> · {{ busy.course_id }} since {{ busy.since }}.
+  Camera settings can be changed after it ends.</span></div>
+{% endif %}
+<div class="alert alert-info"><i class="fa-solid fa-circle-info"></i>
+  <span>Enter each camera's RTSP URL (<code>rtsp://user:pass@IP:554/path</code>), then pick the stream and resolution.
+  The camera itself is switched to that resolution, and the class session decodes and runs face recognition on exactly that stream.</span></div>
+{% if video_test %}
+<div class="alert alert-warning"><i class="fa-solid fa-film"></i>
+  <span>Test room: each camera can also play an uploaded <b>recorded video</b> instead of its RTSP stream — choose
+  <b>Recorded video</b> as its source, upload the file, then <b>Save</b>. Classes started in this room run inference on the recording.</span></div>
+{% endif %}
+
+<form method="POST" id="room-form">
+  <div class="cam-grid">
+    {% for cam in ['camera1', 'camera2'] %}
+    {% set cfg = settings.get(cam, {}) %}
+    <div class="card cam-card" data-cam="{{ cam }}" data-stream="{{ cfg.stream or '' }}"
+         data-res="{{ (cfg.width|string + 'x' + cfg.height|string) if cfg.width else '' }}" data-fps="{{ (cfg.fps|round|int) if cfg.fps else '' }}"
+         data-bitrate="{{ cfg.bitrate_kbps or '' }}" data-gop="{{ cfg.gop or '' }}">
+      <div class="card-header">
+        <h3><i class="fa-solid fa-video"></i> Camera {{ loop.index }}</h3>
+        <span class="cam-status">Not checked</span>
+      </div>
+      <div class="card-body">
+        {% if video_test %}
+        {% set v = videos.get(cam) %}
+        <div class="form-group">
+          <label>Source</label>
+          <div class="seg src-seg">
+            <button type="button" data-src="rtsp"><b><i class="fa-solid fa-video"></i> RTSP camera</b><small>live stream</small></button>
+            <button type="button" data-src="video"><b><i class="fa-solid fa-film"></i> Recorded video</b><small>test: an uploaded file</small></button>
+          </div>
+          <input type="hidden" name="{{ cam }}_source" value="{{ 'video' if v and v.active and not v.missing else 'rtsp' }}"/>
+        </div>
+        <div class="video-panel" hidden>
+          <div class="video-cur" data-ok="{{ '1' if v and not v.missing else '' }}" {% if not v %}hidden{% endif %}>
+            <img alt="" src="{{ v.thumb if v and v.thumb else '' }}"/>
+            <div class="meta">
+              <b class="v-name">{{ v.name if v else '' }}</b><br>
+              <span class="v-info">{% if v %}{{ v.width }}×{{ v.height }} · {{ v.codec }} · {{ v.fps|round|int }} fps · {{ (v.duration // 60)|int }}:{{ '%02d' % ((v.duration % 60)|int) }} · {{ (v.size / 1048576)|round(1) }} MB{% endif %}</span><br>
+              <span class="v-when">{% if v %}uploaded {{ v.uploaded }}{% endif %}</span>
+              {% if v and v.missing %}<br><span style="color:var(--danger);">The file is missing on the server — upload it again.</span>{% endif %}
+              <div style="margin-top:6px;"><button type="button" class="btn btn-outline btn-sm v-del" {% if busy %}disabled{% endif %}><i class="fa-solid fa-trash"></i> Remove</button></div>
+            </div>
+          </div>
+          <label class="drop" {% if busy %}style="pointer-events:none;opacity:.5;"{% endif %}>
+            <i class="fa-solid fa-cloud-arrow-up"></i>
+            <span class="drop-txt">{{ 'Replace the video' if v else 'Choose or drop a video' }} (up to {{ video_max_mb }} MB)</span>
+            <input type="file" class="v-file" hidden accept="video/*,{{ video_exts|join(',') }}"/>
+          </label>
+          <div class="prog"><div class="bar"><i></i></div>
+            <div class="txt"><span class="p-left">0%</span><span class="p-right"></span>
+              <a href="#" class="p-cancel">Cancel</a></div></div>
+          <div class="video-err" hidden></div>
+          <div class="field-help">The class session plays this recording in real time and in a loop, exactly like a camera stream — face detection, tracking and recognition run on it as on a live camera. The RTSP URL below stays saved.</div>
+        </div>
+        {% endif %}
+        <div class="rtsp-panel">
+        <div class="rtsp-off-note"><i class="fa-solid fa-circle-info"></i> Not used while the recorded video is selected — kept for later.</div>
+        <div class="form-group">
+          <label>RTSP URL</label>
+          <div class="url-row">
+            <input class="form-control" name="{{ cam }}" value="{{ room[cam] or '' }}" autocomplete="off"
+                   placeholder="rtsp://admin:password@192.168.1.10{{ loop.index }}:554/stream"/>
+            <button type="button" class="btn btn-outline check-btn" title="Read the camera's streams"><i class="fa-solid fa-plug"></i> Check</button>
+          </div>
+          <div class="cam-meta"></div>
+        </div>
+        <div class="form-group">
+          <label>Stream Type</label>
+          <div class="seg">
+            <button type="button" data-stream="main"><b>Main Stream</b><small>—</small></button>
+            <button type="button" data-stream="sub"><b>Sub-Stream</b><small>—</small></button>
+          </div>
+          <input type="hidden" name="{{ cam }}_stream" value="{{ cfg.stream or '' }}"/>
+        </div>
+        <div class="form-group" style="margin-bottom:0;">
+          <div style="display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr);gap:10px;">
+            <div>
+              <label>Resolution</label>
+              <select class="form-control" name="{{ cam }}_res" disabled><option value="">— check the camera first —</option></select>
+            </div>
+            <div>
+              <label>Frame rate</label>
+              <select class="form-control" name="{{ cam }}_fps" disabled><option value="">—</option></select>
+            </div>
+          </div>
+          <div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px;margin-top:10px;">
+            <div>
+              <label>Bitrate</label>
+              <select class="form-control" name="{{ cam }}_bitrate" disabled><option value="">—</option></select>
+            </div>
+            <div>
+              <label>I-frame interval</label>
+              <select class="form-control" name="{{ cam }}_gop" disabled><option value="">—</option></select>
+            </div>
+          </div>
+          <div class="field-help">A camera on Wi-Fi gets 25 fps only when its stream fits the link: 1024–1536 kbps
+            for 1080p H.265 (2048 for H.264), and an I-frame every second, so a lost packet costs at most one second of video.</div>
+          <div class="field-help">
+            {% if cfg.stream %}Saved: {{ 'Main' if cfg.stream == 'main' else 'Sub' }} stream{% if cfg.width %} {{ cfg.width }}×{{ cfg.height }}{% endif %}{% if cfg.codec %} {{ cfg.codec }}{% endif %}{% if cfg.fps %} {{ cfg.fps|round|int }} fps{% endif %}{% if cfg.checked %} · applied {{ cfg.checked }}{% endif %}.
+            {% else %}Not chosen yet: the session uses the deployment default ({{ default_profile }}-stream, processed at up to {{ default_size }}).{% endif %}
+          </div>
+        </div>
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  <div style="display:flex;gap:12px;margin-top:20px;">
+    <button type="submit" class="btn btn-primary" id="save-btn" {% if busy %}disabled{% endif %}><i class="fa-solid fa-save"></i> Save &amp; Apply to Cameras</button>
+    <a href="{{ url_for('buildings') }}" class="btn btn-outline">Cancel</a>
+  </div>
+</form>
+
+<script>
+const INFO_URL = "{{ url_for('camera_info') }}";
+document.querySelectorAll('.cam-card').forEach(card => {
+  const cam = card.dataset.cam;
+  const urlIn = card.querySelector(`input[name="${cam}"]`);
+  const streamIn = card.querySelector(`input[name="${cam}_stream"]`);
+  const resSel = card.querySelector(`select[name="${cam}_res"]`);
+  const fpsSel = card.querySelector(`select[name="${cam}_fps"]`);
+  const brSel = card.querySelector(`select[name="${cam}_bitrate"]`);
+  const gopSel = card.querySelector(`select[name="${cam}_gop"]`);
+  const TARGET_FPS = 25;   // the live view needs >= 25 fps from every camera
+  const status = card.querySelector('.cam-status'), meta = card.querySelector('.cam-meta');
+  const segs = card.querySelectorAll('.seg button');
+  let info = null;
+
+  function setStatus(text, cls){ status.textContent = text; status.className = 'cam-status' + (cls ? ' ' + cls : ''); }
+
+  function pick(stream){
+    streamIn.value = stream || '';
+    segs.forEach(b => b.classList.toggle('on', b.dataset.stream === stream));
+    const s = info && info.ok ? info.streams.find(x => x.id === stream) : null;
+    const saved = card.dataset.stream === stream ? card.dataset.res : '';
+    const current = s ? `${s.width}x${s.height}` : '';
+    const want = saved || current;
+    let opts = s ? s.resolutions.slice() : (saved ? [saved.split('x').map(Number)] : []);
+    if (s && !opts.length && s.width) opts = [[s.width, s.height]];
+    resSel.innerHTML = '';
+    opts.forEach(([w, h]) => {
+      const v = `${w}x${h}`;
+      const o = new Option(`${w}*${h}${v === current ? '  (camera now)' : ''}`, v);
+      o.selected = v === want;
+      resSel.add(o);
+    });
+    if (!opts.length) resSel.add(new Option(stream ? '— check the camera first —' : '— choose a stream —', ''));
+    resSel.disabled = !opts.length;
+
+    // frame rate: the saved one, else the camera's own when >= 25, else 25 (or its highest)
+    const nowFps = s ? Math.round(s.fps || 0) : 0;
+    const savedFps = card.dataset.stream === stream ? Number(card.dataset.fps || 0) : 0;
+    let fopts = s && s.fps_options && s.fps_options.length ? s.fps_options.slice() : (savedFps ? [savedFps] : (nowFps ? [nowFps] : []));
+    const fallback = fopts.includes(TARGET_FPS) ? TARGET_FPS : (fopts.length ? Math.max(...fopts) : 0);
+    const wantFps = savedFps || (nowFps >= TARGET_FPS ? nowFps : fallback);
+    fpsSel.innerHTML = '';
+    fopts.forEach(f => {
+      const o = new Option(`${f} fps${f === nowFps ? ' (camera now)' : ''}${f === TARGET_FPS ? ' ✓' : ''}`, f);
+      o.selected = f === wantFps;
+      fpsSel.add(o);
+    });
+    if (!fopts.length) fpsSel.add(new Option('—', ''));
+    fpsSel.disabled = !fopts.length;
+
+    // bitrate ceiling (kbps) and I-frame interval (frames): the saved value, else what the camera has now
+    const mine = card.dataset.stream === stream;
+    const fill = (sel, values, now, saved, label, good) => {
+      const want = saved || now;
+      const all = [...new Set([...values, now, saved].filter(v => v > 0))].sort((a, b) => a - b);
+      sel.innerHTML = '';
+      if (!want) sel.add(new Option('— as on the camera —', '', true, true));   // never changed unless chosen
+      all.forEach(v => {
+        const o = new Option(label(v) + (v === now ? ' (camera now)' : '') + (good(v) ? ' ✓' : ''), v);
+        o.selected = v === want;
+        sel.add(o);
+      });
+      sel.disabled = !s || !all.length;
+    };
+    const h265 = s && /265|hevc/i.test(s.codec || '');
+    const fpsNow = Number(fpsSel.value) || nowFps || TARGET_FPS;
+    fill(brSel, [512, 768, 1024, 1536, 2048, 3072, 4096, 6144, 8192], s ? s.bitrate_kbps || 0 : 0,
+         mine ? Number(card.dataset.bitrate || 0) : 0, v => `${v} kbps`,
+         v => stream === 'main' && (h265 ? v >= 1024 && v <= 1536 : v >= 1536 && v <= 2048));
+    fill(gopSel, [fpsNow, fpsNow * 2, fpsNow * 4], s ? s.gop || 0 : 0, mine ? Number(card.dataset.gop || 0) : 0,
+         v => `every ${v} frames (${(v / fpsNow).toFixed(v % fpsNow ? 1 : 0)} s)`, v => v === fpsNow);
+  }
+
+  async function check(){
+    if (!urlIn.value.trim()) { setStatus('No URL', 'err'); meta.textContent = ''; return; }
+    setStatus('Checking…', 'busy');
+    meta.className = 'cam-meta'; meta.innerHTML = '<span class="spin"></span> Reading the camera\'s streams…';
+    try {
+      const r = await fetch(INFO_URL, {method: 'POST', headers: {'Content-Type': 'application/json'},
+                                       body: JSON.stringify({url: urlIn.value.trim()})});
+      info = await r.json();
+    } catch (e) { info = {ok: false, error: 'request failed'}; }
+    segs.forEach(b => {
+      const s = info.ok ? info.streams.find(x => x.id === b.dataset.stream) : null;
+      b.querySelector('small').textContent = s ? `${s.codec} · ${s.width}×${s.height} · ${Math.round(s.fps)} fps` : '—';
+      b.disabled = info.ok && !s;
+    });
+    if (info.ok) {
+      setStatus('Online', 'ok');
+      meta.textContent = [[info.vendor, info.model].filter(Boolean).join(' '), info.protocol === 'isapi' ? 'Hikvision ISAPI' : 'ONVIF',
+                          info.web_port && info.web_port !== 80 ? `${info.web_port === 443 || info.web_port === 8443 ? 'https' : 'http'} port ${info.web_port}` : '']
+                         .filter(Boolean).join(' · ');
+      pick(streamIn.value || card.dataset.stream || 'sub');
+    } else {
+      const r = info.rtsp || {};
+      if (r.ok) {   // the stream opens; only the camera's settings (web port) are out of reach
+        setStatus('Stream OK', 'warn');
+        meta.className = 'cam-meta warn';
+        meta.textContent = `The stream opens with this URL${r.codecs && r.codecs.length ? ' (' + r.codecs.join(', ') + ')' : ''}, ` +
+          `so classes can use it. Its settings cannot be read from here (${info.error || 'no web access'}) — ` +
+          `stream type, resolution and bitrate stay as they are set on the camera.`;
+      } else if (r.status === 401) {
+        setStatus('Wrong password', 'err');
+        meta.className = 'cam-meta err'; meta.textContent = r.error;
+      } else {
+        setStatus('Unreachable', 'err');
+        meta.className = 'cam-meta err';
+        meta.textContent = [info.error || 'The camera did not answer.', r.error ? 'Stream: ' + r.error : ''].filter(Boolean).join(' · ');
+      }
+      pick(streamIn.value || card.dataset.stream || '');
+    }
+  }
+
+  segs.forEach(b => b.addEventListener('click', () => { if (!b.disabled) pick(b.dataset.stream); }));
+  card.querySelector('.check-btn').addEventListener('click', check);
+  urlIn.addEventListener('change', () => { info = null; card.dataset.stream = ''; card.dataset.res = ''; check(); });
+  pick(card.dataset.stream);
+  if (urlIn.value.trim()) check();
+});
+{% if video_test %}
+// ── recorded test videos: source switch + chunked upload (resumable pieces, progress) ──
+const VIDEO_BASE = "{{ url_for('edit_room', faculty_code=faculty_code, floor=floor, room=room_num) }}/video/";
+const fmtMB = n => (n / 1048576).toFixed(n < 10485760 ? 1 : 0);
+const fmtTime = s => !isFinite(s) ? '' : (s >= 60 ? `${Math.floor(s / 60)}:${String(Math.round(s % 60)).padStart(2, '0')}` : `${Math.round(s)}s`);
+document.querySelectorAll('.cam-card').forEach(card => {
+  const cam = card.dataset.cam;
+  const srcIn = card.querySelector(`input[name="${cam}_source"]`);
+  if (!srcIn) return;
+  const panel = card.querySelector('.video-panel'), rtsp = card.querySelector('.rtsp-panel');
+  const cur = panel.querySelector('.video-cur'), fileIn = panel.querySelector('.v-file'), drop = panel.querySelector('.drop');
+  const prog = panel.querySelector('.prog'), bar = prog.querySelector('.bar i');
+  const pl = prog.querySelector('.p-left'), pr = prog.querySelector('.p-right'), errBox = panel.querySelector('.video-err');
+  let hasVideo = !!cur.dataset.ok, xhr = null, cancelled = false;
+
+  function setSrc(src){
+    srcIn.value = src;
+    card.querySelectorAll('.src-seg button').forEach(b => b.classList.toggle('on', b.dataset.src === src));
+    panel.hidden = src !== 'video';
+    rtsp.classList.toggle('off', src === 'video');
+  }
+  card.querySelectorAll('.src-seg button').forEach(b => b.addEventListener('click', () => setSrc(b.dataset.src)));
+  setSrc(srcIn.value);
+
+  function showErr(msg){ errBox.hidden = !msg; errBox.textContent = msg || ''; }
+  function showVideo(v){
+    hasVideo = !!v;
+    cur.hidden = !v;
+    if (!v) { drop.querySelector('.drop-txt').textContent = 'Choose or drop a video'; return; }
+    cur.querySelector('img').src = v.thumb ? v.thumb + '?t=' + Date.now() : '';
+    cur.querySelector('.v-name').textContent = v.name;
+    const d = v.duration || 0;
+    cur.querySelector('.v-info').textContent = `${v.width}×${v.height} · ${v.codec} · ${Math.round(v.fps)} fps · ${Math.floor(d / 60)}:${String(Math.floor(d % 60)).padStart(2, '0')} · ${fmtMB(v.size)} MB`;
+    cur.querySelector('.v-when').textContent = `uploaded ${v.uploaded}`;
+    drop.querySelector('.drop-txt').textContent = 'Replace the video';
+  }
+
+  function sendPiece(url, blob, onProgress){
+    return new Promise((resolve, reject) => {
+      xhr = new XMLHttpRequest();
+      xhr.open('POST', url);
+      xhr.setRequestHeader('Content-Type', 'application/octet-stream');
+      xhr.upload.onprogress = e => onProgress(e.loaded);
+      xhr.onload = () => { let j = {}; try { j = JSON.parse(xhr.responseText); } catch (e) {} resolve({status: xhr.status, body: j}); };
+      xhr.onerror = () => reject(new Error('network'));
+      xhr.onabort = () => reject(new Error('cancelled'));
+      xhr.send(blob);
+    });
+  }
+
+  async function upload(file){
+    showErr('');
+    cancelled = false;
+    prog.classList.add('on'); bar.style.width = '0%'; pl.textContent = 'Starting…'; pr.textContent = '';
+    drop.style.pointerEvents = 'none';
+    try {
+      const r = await fetch(VIDEO_BASE + cam + '/start', {method: 'POST', headers: {'Content-Type': 'application/json'},
+                                                          body: JSON.stringify({name: file.name, size: file.size})});
+      const st = await r.json().catch(() => ({}));
+      if (!r.ok || !st.ok) throw new Error(st.error || `upload refused (${r.status})`);
+      const t0 = performance.now();
+      let offset = 0, tries = 0, done = null;
+      while (offset < file.size) {
+        if (cancelled) throw new Error('cancelled');
+        const piece = file.slice(offset, offset + st.chunk);
+        let res;
+        try {
+          res = await sendPiece(`${VIDEO_BASE}${cam}/chunk?upload_id=${st.upload_id}&offset=${offset}`, piece, loaded => {
+            const sent = offset + loaded, secs = (performance.now() - t0) / 1000, rate = sent / Math.max(secs, 0.1);
+            bar.style.width = `${(sent / file.size * 100).toFixed(1)}%`;
+            pl.textContent = `${Math.floor(sent / file.size * 100)}% · ${fmtMB(sent)} / ${fmtMB(file.size)} MB`;
+            pr.textContent = `${fmtMB(rate)} MB/s · ${fmtTime((file.size - sent) / rate)} left`;
+          });
+        } catch (e) {
+          if (e.message === 'cancelled' || ++tries > 5) throw e;
+          await new Promise(ok => setTimeout(ok, 1000 * tries));   // Wi-Fi hiccup: resend this piece
+          continue;
+        }
+        if (res.status === 409 && res.body.resume !== undefined) { offset = res.body.resume; continue; }
+        if (res.status >= 300 || !res.body.ok) throw new Error(res.body.error || `upload failed (${res.status})`);
+        tries = 0;
+        offset += piece.size;
+        if (res.body.video) done = res.body.video;
+        if (offset >= file.size && !done) pl.textContent = 'Checking the video…';
+      }
+      bar.style.width = '100%'; pl.textContent = 'Uploaded ✓'; pr.textContent = '';
+      showVideo(done);
+      setSrc('video');
+      setTimeout(() => prog.classList.remove('on'), 2500);
+    } catch (e) {
+      prog.classList.remove('on');
+      showErr(e.message === 'cancelled' ? 'Upload cancelled.' : (e.message === 'network' ? 'The connection to the server was lost — try again.' : e.message));
+    } finally {
+      xhr = null;
+      drop.style.pointerEvents = '';
+      fileIn.value = '';
+    }
+  }
+
+  fileIn.addEventListener('change', () => { if (fileIn.files[0]) upload(fileIn.files[0]); });
+  drop.addEventListener('dragover', e => { e.preventDefault(); drop.classList.add('over'); });
+  drop.addEventListener('dragleave', () => drop.classList.remove('over'));
+  drop.addEventListener('drop', e => { e.preventDefault(); drop.classList.remove('over'); if (e.dataTransfer.files[0]) upload(e.dataTransfer.files[0]); });
+  prog.querySelector('.p-cancel').addEventListener('click', e => { e.preventDefault(); cancelled = true; if (xhr) xhr.abort(); });
+  panel.querySelector('.v-del').addEventListener('click', async () => {
+    if (!confirm('Remove this recorded video from the server?')) return;
+    const r = await fetch(VIDEO_BASE + cam + '/delete', {method: 'POST'});
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok || !j.ok) { showErr(j.error || 'Could not remove the video.'); return; }
+    showVideo(null);
+    setSrc('rtsp');
+  });
+  card.videoMissing = () => srcIn.value === 'video' && !hasVideo;
+});
+{% endif %}
+document.getElementById('room-form').addEventListener('submit', e => {
+  const missing = [...document.querySelectorAll('.cam-card')].filter(c => c.videoMissing && c.videoMissing());
+  if (missing.length) {
+    e.preventDefault();
+    alert(missing.map(c => c.querySelector('h3').textContent.trim()).join(', ') + ': upload a recorded video first, or choose RTSP camera.');
+    return;
+  }
+  const b = document.getElementById('save-btn');
+  b.disabled = true; b.innerHTML = '<span class="spin"></span> Applying to cameras…';
+});
+</script>
+{% endblock %}

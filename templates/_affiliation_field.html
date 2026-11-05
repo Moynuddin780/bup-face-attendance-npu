@@ -1,0 +1,39 @@
+{#- "Faculty of": BUP or another university (adjunct faculty), for the add / edit teacher forms.
+      {% from "_affiliation_field.html" import affiliation_field %}
+      {{ affiliation_field(affiliation, university) }}   — 'bup' | 'external', university name -#}
+{% macro affiliation_field(affiliation='bup', university='') -%}
+{% set ext = affiliation == 'external' %}
+<style>
+  .aff-opts{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+  .form-group .aff-opt{display:flex;gap:10px;align-items:flex-start;padding:12px 14px;border:1.5px solid var(--border);border-radius:10px;cursor:pointer;
+    background:#fff;transition:all .15s;margin:0;text-transform:none;letter-spacing:0;color:var(--text);font-size:14px;font-weight:400;}
+  .aff-opt input{margin-top:3px;accent-color:var(--primary);}
+  .aff-opt b{display:block;font-size:14px;font-weight:700;}
+  .aff-opt small{display:block;color:var(--text-muted);font-size:12px;margin-top:2px;line-height:1.4;}
+  .aff-opt:has(input:checked){border-color:var(--primary);background:#eff6ff;}
+  .aff-uni{margin-top:10px;}
+  @media(max-width:600px){.aff-opts{grid-template-columns:1fr;}}
+</style>
+<div class="form-group">
+  <label>Faculty member of</label>
+  <div class="aff-opts">
+    <label class="aff-opt"><input type="radio" name="affiliation" value="bup" {% if not ext %}checked{% endif %} onchange="affToggle()"/>
+      <span><b>BUP</b><small>Bangladesh University of Professionals — permanent faculty</small></span></label>
+    <label class="aff-opt"><input type="radio" name="affiliation" value="external" {% if ext %}checked{% endif %} onchange="affToggle()"/>
+      <span><b>Another university</b><small>Adjunct faculty who teaches courses at BUP</small></span></label>
+  </div>
+  <div class="aff-uni" id="aff-uni" {% if not ext %}hidden{% endif %}>
+    <input class="form-control" name="university" id="aff-uni-input" value="{{ university or '' }}" maxlength="120"
+           placeholder="University name, e.g. University of Dhaka" {% if ext %}required{% endif %}/>
+  </div>
+</div>
+<script>
+function affToggle(){
+  const ext = document.querySelector('input[name="affiliation"]:checked')?.value === 'external';
+  document.getElementById('aff-uni').hidden = !ext;
+  const inp = document.getElementById('aff-uni-input');
+  inp.required = ext;
+  if (ext) inp.focus();
+}
+</script>
+{%- endmacro %}

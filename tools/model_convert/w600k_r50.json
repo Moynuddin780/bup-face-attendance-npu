@@ -1,0 +1,49 @@
+{
+  "inputs": {
+    "input.1": [
+      1,
+      3,
+      112,
+      112
+    ]
+  },
+  "calibration_method": "ema",
+  "calibration_num": 1000,
+  "default_loader": {
+    "dataset_path": "./calib",
+    "file_extensions": [
+      "png",
+      "jpg"
+    ],
+    "preprocessings": [
+      {
+        "convertColor": {
+          "form": "BGR2RGB"
+        }
+      },
+      {
+        "normalize": {
+          "mean": [
+            127.5,
+            127.5,
+            127.5
+          ],
+          "std": [
+            127.5,
+            127.5,
+            127.5
+          ]
+        }
+      },
+      {
+        "transpose": {
+          "axis": [
+            2,
+            0,
+            1
+          ]
+        }
+      }
+    ]
+  }
+}

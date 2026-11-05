@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% block title %}Teachers{% endblock %}
+{% block topbar_title %}Teachers{% endblock %}
+{% block extra_head %}
+<style>
+  .tx-avatar{width:36px;height:36px;border-radius:50%;object-fit:cover;flex-shrink:0;border:2px solid #fff;box-shadow:0 0 0 1px var(--border);}
+  .tx-sec{margin-bottom:20px;}
+  .tx-sec .card-header h3{display:flex;align-items:center;gap:10px;}
+  .tx-sec .card-header h3 small{font-weight:500;color:var(--text-muted);font-size:13px;}
+  .tx-adj .card-header{background:linear-gradient(90deg,#fffbeb,#fff);}
+  .tx-uni{display:inline-flex;align-items:center;gap:6px;font-weight:600;color:#92400e;}
+</style>
+{% endblock %}
+{% macro teacher_rows(list, adjunct=False) %}
+{% for uname, t in list.items()|sort(attribute='1.name') %}
+<tr>
+  <td><div style="display:flex;align-items:center;gap:10px;">
+    {% if t.photo %}<img class="tx-avatar" src="{{ url_for('avatar', fname=t.photo) }}" alt=""/>{% else %}<div class="avatar">{{ t.name[0].upper() }}</div>{% endif %}
+    <b>{{ t.name }}</b></div></td>
+  <td><code>{{ uname }}</code></td>
+  <td>{{ t.email or '—' }}</td>
+  {% if adjunct %}<td><span class="tx-uni"><i class="fa-solid fa-building-columns"></i> {{ t.university or '—' }}</span></td>{% endif %}
+  <td><span class="badge badge-primary">{{ t.faculty_code }}</span></td>
+  <td>{{ t.dept_code }}</td>
+  {% set nc = (t.courses or [])|length %}
+  <td><span class="badge badge-info" style="white-space:nowrap;">{{ nc }} course{{ 's' if nc != 1 }}</span></td>
+  <td><div style="display:flex;gap:6px;">
+    <a href="{{ url_for('edit_teacher', uname=uname) }}" class="btn btn-outline btn-sm btn-icon" title="Edit"><i class="fa-solid fa-pen"></i></a>
+    <a href="{{ url_for('delete_teacher', uname=uname) }}" class="btn btn-danger btn-sm btn-icon" title="Delete" onclick="return confirm('Delete teacher?')"><i class="fa-solid fa-trash"></i></a>
+  </div></td>
+</tr>
+{% endfor %}
+{% endmacro %}
+{% block content %}
+<div class="page-header">
+  <div><h1>Teachers</h1><div class="breadcrumb"><a href="{{ url_for('dashboard') }}">Dashboard</a> › Teachers</div></div>
+  <a href="{{ url_for('add_teacher') }}" class="btn btn-primary"><i class="fa-solid fa-plus"></i> Add Teacher</a>
+</div>
+<div class="card tx-sec">
+  <div class="card-header"><h3><i class="fa-solid fa-chalkboard-user" style="color:var(--primary);"></i> BUP Faculty <small>{{ bup_teachers|length }}</small></h3></div>
+  <div class="table-wrap">
+    {% if bup_teachers %}
+    <table>
+      <thead><tr><th>Name</th><th>Username</th><th>Email</th><th>Faculty</th><th>Department</th><th>Courses</th><th>Actions</th></tr></thead>
+      <tbody>{{ teacher_rows(bup_teachers) }}</tbody>
+    </table>
+    {% else %}
+    <div class="empty-state"><i class="fa-solid fa-chalkboard-user"></i><p>No teachers added yet.</p></div>
+    {% endif %}
+  </div>
+</div>
+<div class="card tx-sec tx-adj">
+  <div class="card-header"><h3><i class="fa-solid fa-user-tie" style="color:#b45309;"></i> Adjunct Faculty <small>{{ adjunct|length }} · from other universities</small></h3></div>
+  <div class="table-wrap">
+    {% if adjunct %}
+    <table>
+      <thead><tr><th>Name</th><th>Username</th><th>Email</th><th>University</th><th>Faculty</th><th>Department</th><th>Courses</th><th>Actions</th></tr></thead>
+      <tbody>{{ teacher_rows(adjunct, True) }}</tbody>
+    </table>
+    {% else %}
+    <div class="empty-state" style="padding:28px 20px;"><i class="fa-solid fa-user-tie" style="font-size:32px;"></i>
+      <p>No adjunct faculty yet. Add a teacher and choose <b>Another university</b>.</p></div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

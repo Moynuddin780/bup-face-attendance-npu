@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+{% block title %}Profile{% endblock %}
+{% block topbar_title %}My Profile{% endblock %}
+{% block extra_head %}
+<style>
+  .pf-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px;max-width:900px;}
+  .pf-photo{display:flex;gap:20px;align-items:center;flex-wrap:wrap;}
+  .pf-pic{width:120px;height:120px;border-radius:50%;object-fit:cover;border:4px solid #fff;box-shadow:0 0 0 1px var(--border),0 6px 18px rgba(26,60,110,.15);}
+  .pf-initial{width:120px;height:120px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:var(--primary-light);
+    color:#fff;font-size:46px;font-weight:800;box-shadow:0 6px 18px rgba(26,60,110,.15);}
+  .pf-actions{display:flex;flex-direction:column;gap:10px;flex:1;min-width:200px;}
+  .pf-drop{display:flex;align-items:center;gap:10px;padding:12px 14px;border:1.5px dashed #c7d2fe;border-radius:10px;background:#f8faff;cursor:pointer;
+    font-size:13.5px;color:#334155;}
+  .pf-drop:hover{border-color:var(--primary);}
+  .pf-drop input{display:none;}
+  .pf-note{font-size:12px;color:var(--text-muted);}
+  .pf-photo [hidden]{display:none !important;}
+  @media(max-width:900px){.pf-grid{grid-template-columns:1fr;}}
+</style>
+{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div><h1>Profile</h1><div class="breadcrumb"><a href="{{ url_for('dashboard') }}">Dashboard</a> › Profile</div></div>
+</div>
+<div class="pf-grid">
+  <div class="card" style="grid-column:1 / -1;">
+    <div class="card-header"><h3><i class="fa-solid fa-image-portrait"></i> Profile Photo</h3></div>
+    <div class="card-body pf-photo">
+      {% if account.photo %}
+      <img class="pf-pic" id="pf-preview" src="{{ url_for('avatar', fname=account.photo) }}" alt="Profile photo"/>
+      {% else %}
+      <div class="pf-initial" id="pf-initial">{{ session.name[0].upper() if session.name else '?' }}</div>
+      <img class="pf-pic" id="pf-preview" alt="" hidden/>
+      {% endif %}
+      <div class="pf-actions">
+        <form method="POST" enctype="multipart/form-data" style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+          <input type="hidden" name="action" value="photo"/>
+          <label class="pf-drop"><i class="fa-solid fa-cloud-arrow-up" style="color:var(--primary);font-size:18px;"></i>
+            <span id="pf-file">Choose a photo…</span>
+            <input type="file" name="photo" accept="image/*,.heic,.heif" onchange="pfPick(this)"/></label>
+          <button type="submit" class="btn btn-primary" id="pf-save" disabled><i class="fa-solid fa-save"></i> Save Photo</button>
+        </form>
+        {% if account.photo %}
+        <form method="POST" onsubmit="return confirm('Remove your profile photo?')">
+          <input type="hidden" name="action" value="photo_remove"/>
+          <button type="submit" class="btn btn-outline btn-sm"><i class="fa-solid fa-trash"></i> Remove photo</button>
+        </form>
+        {% endif %}
+        <div class="pf-note">JPG, PNG or iPhone HEIC. It is cropped to a square around the centre.</div>
+      </div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-header"><h3><i class="fa-solid fa-circle-user"></i> Account Info</h3></div>
+    <div class="card-body">
+      <table style="width:100%;font-size:14px;">
+        <tr><td style="color:var(--text-muted);padding:8px 0;width:120px;">Name</td><td><b>{{ session.name }}</b></td></tr>
+        <tr><td style="color:var(--text-muted);padding:8px 0;">Username</td><td><code>{{ session.username }}</code></td></tr>
+        <tr><td style="color:var(--text-muted);padding:8px 0;">Role</td><td><span class="badge badge-primary">{{ session.role }}</span></td></tr>
+        {% if session.dept %}<tr><td style="color:var(--text-muted);padding:8px 0;">Department</td><td>{{ session.dept }}</td></tr>{% endif %}
+        {% if session.faculty %}<tr><td style="color:var(--text-muted);padding:8px 0;">Faculty</td><td>{{ session.faculty }}</td></tr>{% endif %}
+        {% if account.get('affiliation') == 'external' %}<tr><td style="color:var(--text-muted);padding:8px 0;">University</td><td>{{ account.university }} <span class="badge badge-warning">Adjunct</span></td></tr>{% endif %}
+      </table>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-header"><h3><i class="fa-solid fa-lock"></i> Change Password</h3></div>
+    <div class="card-body">
+      <form method="POST">
+        <input type="hidden" name="action" value="password"/>
+        <div class="form-group">
+          <label>Current Password</label>
+          <input class="form-control" type="password" name="old_password" required/>
+        </div>
+        <div class="form-group">
+          <label>New Password</label>
+          <input class="form-control" type="password" name="new_password" required minlength="6"/>
+        </div>
+        <button type="submit" class="btn btn-primary"><i class="fa-solid fa-save"></i> Change Password</button>
+      </form>
+    </div>
+  </div>
+</div>
+<script>
+function pfPick(inp){
+  const f = inp.files && inp.files[0];
+  document.getElementById('pf-file').textContent = f ? f.name : 'Choose a photo…';
+  document.getElementById('pf-save').disabled = !f;
+  if (!f || !f.type.startsWith('image/') || /heic|heif/i.test(f.type)) return;   // HEIC: the browser cannot preview it
+  const img = document.getElementById('pf-preview'), ini = document.getElementById('pf-initial');
+  img.src = URL.createObjectURL(f); img.hidden = false;
+  if (ini) ini.hidden = true;
+}
+</script>
+{% endblock %}

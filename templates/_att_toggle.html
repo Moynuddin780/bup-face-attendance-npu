@@ -1,0 +1,95 @@
+{#- Present | Absent pill for one student, and its page assets. Used by the review page after a class
+    and by the attendance-record editor:
+      {% from "_att_toggle.html" import att_toggle, att_assets %}
+      {% block extra_head %}{{ att_assets() }}{% endblock %}
+      ... {{ att_toggle('status_' ~ sid, 'Present' or 'Absent') }} inside a <tr class="att-row"> ...
+    The pill posts status_<sid>=Present|Absent like the old <select>. -#}
+
+{% macro att_toggle(name, status) -%}
+<div class="att-seg" data-state="{{ status }}" data-orig="{{ status }}">
+  <input type="hidden" name="{{ name }}" value="{{ status }}"/>
+  <button type="button" data-v="Present" aria-pressed="{{ 'true' if status == 'Present' else 'false' }}"><i class="fa-solid fa-check"></i><span>Present</span></button>
+  <button type="button" data-v="Absent" aria-pressed="{{ 'true' if status == 'Absent' else 'false' }}"><i class="fa-solid fa-xmark"></i><span>Absent</span></button>
+</div>
+{%- endmacro %}
+
+{% macro att_assets() -%}
+<style>
+  .att-seg{position:relative;display:inline-grid;grid-template-columns:1fr 1fr;width:206px;padding:3px;border-radius:999px;
+    background:#eef2f7;box-shadow:inset 0 1px 2px rgba(15,23,42,.08);user-select:none;}
+  .att-seg::before{content:"";position:absolute;top:3px;bottom:3px;left:3px;width:calc(50% - 3px);border-radius:999px;
+    background:linear-gradient(135deg,#22c55e,#16a34a);box-shadow:0 2px 8px rgba(22,163,74,.35);
+    transition:transform .22s cubic-bezier(.4,0,.2,1),background .22s,box-shadow .22s;}
+  .att-seg[data-state="Absent"]::before{transform:translateX(100%);background:linear-gradient(135deg,#f87171,#dc2626);
+    box-shadow:0 2px 8px rgba(220,38,38,.35);}
+  .att-seg button{position:relative;z-index:1;display:flex;align-items:center;justify-content:center;gap:6px;border:0;
+    background:none;padding:7px 10px;border-radius:999px;font:600 13px/1 inherit;color:#64748b;cursor:pointer;transition:color .2s;}
+  .att-seg button:hover{color:#334155;}
+  .att-seg button:focus-visible{outline:2px solid var(--primary);outline-offset:1px;}
+  .att-seg[data-state="Present"] button[data-v="Present"],
+  .att-seg[data-state="Absent"] button[data-v="Absent"]{color:#fff;}
+  .att-row{transition:background .2s;}
+  .att-row[data-status="Absent"] .att-name{color:#7f1d1d;}
+  .att-edited{display:none;margin-left:6px;padding:1px 7px;border-radius:999px;background:#fef3c7;color:#92400e;
+    font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.3px;vertical-align:middle;}
+  .att-row.is-edited .att-edited{display:inline-block;}
+  .att-row.is-edited{background:#fffbeb;}
+  .att-time{font-weight:600;font-size:13px;}
+  .att-bar{width:84px;height:4px;border-radius:4px;background:#e5e7eb;margin-top:5px;overflow:hidden;}
+  .att-bar i{display:block;height:100%;background:var(--success);border-radius:4px;}
+  .att-toolbar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:12px 22px;border-bottom:1px solid var(--border);background:#fbfcfe;}
+  .att-tabs{display:inline-flex;gap:4px;padding:3px;border-radius:10px;background:#eef2f7;}
+  .att-tabs button{border:0;background:none;padding:6px 12px;border-radius:8px;font:600 13px/1 inherit;color:#475569;cursor:pointer;
+    display:inline-flex;align-items:center;gap:6px;}
+  .att-tabs button span{min-width:22px;padding:2px 6px;border-radius:999px;background:#fff;color:#334155;font-size:11.5px;}
+  .att-tabs button.on{background:#fff;color:var(--primary);box-shadow:0 1px 3px rgba(15,23,42,.12);}
+  .att-tabs button.on span{background:var(--primary);color:#fff;}
+  .att-search{display:flex;align-items:center;gap:8px;padding:0 12px;height:34px;border:1px solid var(--border);border-radius:9px;background:#fff;
+    color:var(--text-muted);flex:0 1 240px;}
+  .att-search input{border:0;outline:0;font:inherit;font-size:13.5px;width:100%;background:none;color:var(--text);}
+  .att-rule{font-size:12.5px;color:var(--text-muted);margin-left:auto;}
+  .att-empty{padding:30px;text-align:center;color:var(--text-muted);}
+  @media(max-width:900px){.att-rule{margin-left:0;flex-basis:100%;}.att-search{flex:1 1 100%;}.att-seg{width:180px;}}
+</style>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const rows = [...document.querySelectorAll('.att-row')];
+  let filter = 'all';
+  const setCount = (k, v) => document.querySelectorAll(`[data-count="${k}"]`).forEach(e => e.textContent = v);
+  function recount(){
+    const present = rows.filter(r => r.dataset.status === 'Present').length, total = rows.length;
+    setCount('present', present); setCount('absent', total - present); setCount('all', total);
+    setCount('rate', (total ? Math.round(present / total * 1000) / 10 : 0) + '%');
+  }
+  window.attFilter = function(){
+    const q = (document.querySelector('.att-search input')?.value || '').trim().toLowerCase();
+    let shown = 0;
+    rows.forEach(r => {
+      const ok = (filter === 'all' || r.dataset.status === filter) && (!q || r.textContent.toLowerCase().includes(q));
+      r.style.display = ok ? '' : 'none';
+      if (ok) { shown++; const i = r.querySelector('.att-idx'); if (i) i.textContent = shown; }
+    });
+    const empty = document.querySelector('.att-empty');
+    if (empty) empty.style.display = shown ? 'none' : '';
+  };
+  function set(seg, v){
+    seg.dataset.state = v;
+    seg.querySelector('input').value = v;
+    seg.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.v === v)));
+    const row = seg.closest('.att-row');
+    if (row) { row.dataset.status = v; row.classList.toggle('is-edited', v !== seg.dataset.orig); }
+  }
+  document.querySelectorAll('.att-seg').forEach(seg => seg.querySelectorAll('button').forEach(b =>
+    b.addEventListener('click', () => { set(seg, b.dataset.v); recount(); })));
+  window.attMarkAll = function(v){   // the students on screen (after a search or tab), or all
+    rows.filter(r => r.style.display !== 'none').forEach(r => set(r.querySelector('.att-seg'), v));
+    recount(); attFilter();
+  };
+  document.querySelectorAll('.att-tabs button').forEach(t => t.addEventListener('click', () => {
+    document.querySelectorAll('.att-tabs button').forEach(x => x.classList.toggle('on', x === t));
+    filter = t.dataset.filter; attFilter();
+  }));
+  recount();
+});
+</script>
+{%- endmacro %}

@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% block title %}Attendance Summary – {{ student.name }}{% endblock %}
+{% block topbar_title %}Student Attendance Summary{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>{{ student.name }}</h1>
+    <div class="breadcrumb"><a href="{{ url_for('dashboard') }}">Dashboard</a> › <a href="{{ url_for('list_students', dept=student.dept_code, batch=student.batch, section=student.section) }}">Students</a> › Summary</div>
+  </div>
+  <div style="display:flex;gap:8px;">
+    <a href="{{ url_for('upload_student_images', sid=sid) }}" class="btn btn-outline"><i class="fa-solid fa-images"></i> Photos</a>
+    <a href="{{ url_for('list_students', dept=student.dept_code, batch=student.batch, section=student.section) }}" class="btn btn-outline"><i class="fa-solid fa-arrow-left"></i> Back</a>
+  </div>
+</div>
+
+<div class="stats-grid" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr));margin-bottom:20px;">
+  <div class="stat-card">
+    <div class="stat-icon" style="background:#eff6ff;"><i class="fa-solid fa-id-card" style="color:var(--primary);font-size:18px;"></i></div>
+    <div><div class="stat-val" style="font-size:16px;">{{ sid }}</div><div class="stat-lbl">Student ID</div></div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon" style="background:#f0fdf4;"><i class="fa-solid fa-calendar-check" style="color:var(--success);font-size:18px;"></i></div>
+    <div><div class="stat-val" style="color:var(--success);">{{ present_classes }}</div><div class="stat-lbl">Classes Attended</div></div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon" style="background:#fff1f2;"><i class="fa-solid fa-calendar-xmark" style="color:var(--danger);font-size:18px;"></i></div>
+    <div><div class="stat-val" style="color:var(--danger);">{{ total_classes - present_classes }}</div><div class="stat-lbl">Classes Missed</div></div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon" style="background:#fef3c7;"><i class="fa-solid fa-percent" style="color:var(--warning);font-size:18px;"></i></div>
+    <div>
+      <div class="stat-val {% if attendance_rate >= 75 %}style="color:var(--success);"{% elif attendance_rate >= 50 %}style="color:var(--warning);"{% else %}style="color:var(--danger);"{% endif %}">{{ attendance_rate }}%</div>
+      <div class="stat-lbl">Attendance Rate</div>
+    </div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon" style="background:#fdf4ff;"><i class="fa-solid fa-book" style="color:#9333ea;font-size:18px;"></i></div>
+    <div><div class="stat-val">{{ total_classes }}</div><div class="stat-lbl">Total Classes</div></div>
+  </div>
+</div>
+
+<!-- Attendance bar -->
+{% if total_classes > 0 %}
+<div class="card" style="margin-bottom:20px;">
+  <div class="card-body">
+    <div style="display:flex;justify-content:space-between;margin-bottom:6px;font-size:13px;">
+      <span style="font-weight:600;">Attendance Progress</span>
+      <span>{{ present_classes }} / {{ total_classes }} classes</span>
+    </div>
+    <div style="background:#e5e7eb;border-radius:99px;height:12px;overflow:hidden;">
+      <div style="height:100%;width:{{ attendance_rate }}%;border-radius:99px;background:{% if attendance_rate >= 75 %}var(--success){% elif attendance_rate >= 50 %}var(--warning){% else %}var(--danger){% endif %};transition:width .5s;"></div>
+    </div>
+    {% if attendance_rate < 75 %}
+    <div class="alert alert-warning" style="margin-top:12px;"><i class="fa-solid fa-triangle-exclamation"></i> Below 75% attendance threshold. {{ ((total_classes * 0.75 - present_classes)|int + 1) }} more class(es) needed to reach 75%.</div>
+    {% endif %}
+  </div>
+</div>
+{% endif %}
+
+<div class="card">
+  <div class="card-header"><h3><i class="fa-solid fa-list"></i> Class-wise Record</h3></div>
+  <div class="table-wrap">
+    {% if records %}
+    <table>
+      <thead><tr><th>Date</th><th>Time</th><th>Course</th><th>Status</th><th>Time Detected</th></tr></thead>
+      <tbody>
+      {% for r in records %}
+      <tr>
+        <td>{{ r.date }}</td>
+        <td>{{ r.time }}</td>
+        <td><b>{{ r.course_id }}</b> – {{ r.course_name }}</td>
+        <td><span class="badge {% if r.present %}badge-success{% else %}badge-danger{% endif %}">{{ r.status }}</span></td>
+        <td>{{ r.total_time|mins }}</td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div class="empty-state"><i class="fa-solid fa-calendar-xmark"></i><p>No attendance records found for this student.</p></div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

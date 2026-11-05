@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Login – BUP Face Attendance</title>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet"/>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0;}
+    body{font-family:'Segoe UI',system-ui,sans-serif;min-height:100vh;display:flex;
+      background:linear-gradient(135deg,#0f2349 0%,#1a3c6e 50%,#0f2349 100%);}
+    .login-wrapper{display:flex;width:100%;min-height:100vh;}
+    .login-left{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px;color:#fff;}
+    .login-left .uni-logo{width:90px;height:90px;background:rgba(255,255,255,.1);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:38px;font-weight:900;margin-bottom:20px;border:2px solid rgba(232,176,4,.5);}
+    .login-left h1{font-size:26px;font-weight:800;margin-bottom:6px;text-align:center;}
+    .login-left p{opacity:.65;font-size:14px;text-align:center;max-width:320px;line-height:1.6;}
+    .features{margin-top:32px;display:flex;flex-direction:column;gap:14px;max-width:280px;}
+    .feature-item{display:flex;align-items:center;gap:12px;font-size:13.5px;opacity:.8;}
+    .feature-icon{width:36px;height:36px;background:rgba(232,176,4,.2);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:15px;color:#e8b004;flex-shrink:0;}
+    .login-right{width:420px;display:flex;align-items:center;justify-content:center;padding:40px;background:rgba(255,255,255,.03);}
+    .login-card{width:100%;background:#fff;border-radius:16px;padding:38px 34px;box-shadow:0 20px 60px rgba(0,0,0,.35);}
+    .login-card h2{font-size:22px;font-weight:800;color:#1a3c6e;margin-bottom:4px;}
+    .login-card .sub{color:#6b7280;font-size:13.5px;margin-bottom:28px;}
+    .form-group{margin-bottom:18px;}
+    .form-group label{display:block;font-size:12px;font-weight:700;color:#374151;margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px;}
+    .input-wrap{position:relative;}
+    .input-wrap i{position:absolute;left:13px;top:50%;transform:translateY(-50%);color:#9ca3af;font-size:14px;}
+    .input-wrap input{width:100%;padding:10px 13px 10px 38px;border:1.5px solid #e5e7eb;border-radius:9px;font-size:14px;transition:border .15s;color:#1f2937;}
+    .input-wrap input:focus{outline:none;border-color:#1a3c6e;box-shadow:0 0 0 3px rgba(26,60,110,.1);}
+    .btn-login{width:100%;padding:12px;background:#1a3c6e;color:#fff;border:none;border-radius:9px;font-size:15px;font-weight:700;cursor:pointer;transition:background .15s;margin-top:6px;}
+    .btn-login:hover{background:#2756a0;}
+    .alert-danger{background:#fee2e2;color:#dc2626;padding:10px 14px;border-radius:8px;font-size:13px;margin-bottom:16px;display:flex;align-items:center;gap:8px;}
+    .default-creds{margin-top:20px;background:#f0f4f8;border-radius:8px;padding:12px 14px;font-size:12px;color:#6b7280;border:1px solid #e5e7eb;}
+    .default-creds b{color:#1a3c6e;}
+    @media(max-width:700px){.login-left{display:none}.login-right{width:100%}.login-card{padding:28px 22px}}
+  </style>
+</head>
+<body>
+<div class="login-wrapper">
+  <div class="login-left">
+    <div class="uni-logo" style="background:transparent;border:none;">
+  <img src="/static/img/bup_logo.png" 
+       style="width:85px;height:85px;object-fit:contain;" 
+       alt="BUP Logo"/>
+</div>
+    <h1>Bangladesh University<br>of Professionals</h1>
+    <p>AI-Powered Face Recognition Attendance Management System for BUP Faculties</p>
+    <div class="features">
+      <div class="feature-item"><div class="feature-icon"><i class="fa-solid fa-face-smile"></i></div><span>Real-time face recognition with InsightFace AI</span></div>
+      <div class="feature-item"><div class="feature-icon"><i class="fa-solid fa-video"></i></div><span>Dual RTSP IP camera support per classroom</span></div>
+      <div class="feature-item"><div class="feature-icon"><i class="fa-solid fa-building"></i></div><span>4 Faculties · 17 Departments · Full building management</span></div>
+      <div class="feature-item"><div class="feature-icon"><i class="fa-solid fa-shield-halved"></i></div><span>3-tier role system: Super Admin → Dept Admin → Teacher</span></div>
+    </div>
+  </div>
+  <div class="login-right">
+    <div class="login-card">
+      <h2>Welcome Back</h2>
+      <p class="sub">Sign in to your BUP Attendance account</p>
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% for cat, msg in messages %}
+          <div class="alert-danger"><i class="fa-solid fa-circle-xmark"></i> {{ msg }}</div>
+        {% endfor %}
+      {% endwith %}
+      <form method="POST">
+        <div class="form-group">
+          <label>Username</label>
+          <div class="input-wrap">
+            <i class="fa-solid fa-user"></i>
+            <input type="text" name="username" placeholder="Enter your username" required autocomplete="username"/>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Password</label>
+          <div class="input-wrap">
+            <i class="fa-solid fa-lock"></i>
+            <input type="password" name="password" placeholder="Enter your password" required autocomplete="current-password"/>
+          </div>
+        </div>
+        <button type="submit" class="btn-login"><i class="fa-solid fa-right-to-bracket"></i> Sign In</button>
+      </form>
+      <div class="default-creds">
+        <b>Default Super Admin</b><br>
+        Username: <b>superadmin</b> &nbsp;|&nbsp; Password: <b>bup@2024</b>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

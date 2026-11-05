@@ -1,0 +1,66 @@
+# BUP Face Attendance — DeepX DX-M1 NPU edition
+#
+#   docker/prepare_vendor.sh           # once per host DXRT version
+#   docker compose up -d --build
+#   docker compose logs -f
+#
+# Host prerequisites: DX-M1 driver + dxrtd service running (dxrt-cli -s works).
+name: bup-attendance
+
+services:
+  bup-attendance:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    image: bup-attendance-npu:2.0
+    container_name: bup-attendance
+    # host networking: RTSP from the cameras (UDP or TCP) needs no port mapping, and dxrtd's
+    # abstract IPC socket (@dxrt_dynamic_ipc.sock) only exists in the host network namespace.
+    network_mode: host
+    # host PID namespace: libdxrt's isDxrtServiceRunning() scans /proc for a process named
+    # "dxrtd"; in a private PID namespace it never finds the host service and every
+    # InferenceEngine fails with "dxrt service is not running".
+    pid: host
+    # host IPC namespace: DXRT <= 3.3 talks to dxrtd over SysV message queues + /dev/shm.
+    # In a private IPC namespace the requests sit in the container's own queue and the first
+    # InferenceEngine (start of an attendance session) waits forever.
+    ipc: host
+    devices:
+      - /dev/dxrt0:/dev/dxrt0          # world-rw on the host: no root needed inside
+      - /dev/dri:/dev/dri              # Intel iGPU: H.264/H.265 decoding + scaling (GStreamer VA-API)
+    group_add:
+      - "${BUP_RENDER_GID:-992}"       # the host's "render" group (getent group render) owns /dev/dri/renderD*
+    # run as the host user who owns ./data, ./db ... (setup.sh writes BUP_UID/BUP_GID to .env)
+    user: "${BUP_UID:-0}:${BUP_GID:-0}"
+    env_file: .env
+    environment:
+      BUP_DB_FILE: /app/db/bup_db.json
+      HOME: /tmp
+      WARM_FACE_TEMPLATES: "1"                      # rebuild stale face templates after a model change
+    volumes:
+      - ./data:/app/data                            # student photos + embedding caches
+      - ./attendance_history:/app/attendance_history
+      - ./cloud_backup:/app/cloud_backup
+      - ./uploads:/app/uploads
+      - ./db:/app/db                                # live bup_db.json (directory mount: atomic saves)
+      - ./bup_db.json:/app/seed/bup_db.json:ro      # seeds ./db on the first start only
+      - ./models:/app/models:ro
+    restart: unless-stopped
+    # Live classes come first. This machine also runs image builds, tests and other work: under
+    # CPU contention this container gets ~3x the default share, ~1.5 GB of its memory is protected
+    # from reclaim/swap (memory.low), and it is never the process the kernel kills when RAM runs out.
+    cpu_shares: 8192
+    mem_reservation: 1536m
+    oom_score_adj: -500
+    # GStreamer + VA-API + DXRT hold dozens of file descriptors per camera; with several classes the
+    # default soft limit (1024) ran out and the worker died, ending every class at once.
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536
+      # no core dumps: a crashed worker wrote 1.3 GB per crash to the host's apport directory and
+      # filled the disk (the classes resume from db/live_sessions.json; the dump is not needed)
+      core:
+        soft: 0
+        hard: 0
+    stop_grace_period: 20s

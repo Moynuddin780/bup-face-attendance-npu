@@ -1,0 +1,14 @@
+flask==2.3.2
+werkzeug==2.3.7
+numpy>=1.21.0
+pandas>=2.1.0
+tqdm>=4.65.0
+gunicorn>=22.0.0
+# student photos: HEIC/HEIF phone photos -> JPEG, and photo thumbnails
+pillow>=10.0
+pillow-heif>=0.18
+# build-time only: the C++ engine (bup_engine) is a pybind11 module
+pybind11>=2.12.0
+
+# NOTE: no opencv-python and no dx_engine here. Camera decode, image I/O and all
+# NPU inference run inside bup_engine (C++, linked against libdxrt + system OpenCV).

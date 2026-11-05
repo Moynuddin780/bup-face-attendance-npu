@@ -1,0 +1,84 @@
+{
+  "seconds": 30,
+  "npu_shared_with": [
+    "sdvision-edge"
+  ],
+  "results": [
+    {
+      "mode": "original",
+      "stream": "main",
+      "cpu_cores": 1.29,
+      "students_seen": 6,
+      "cameras": {
+        "camera1": {
+          "processed_fps": 8.57,
+          "loop_fps": 8.57,
+          "pipeline_ms": 104.7,
+          "faces_per_frame": 4.23,
+          "frame_size": "1920x1080 -> 1280x720 (squashed if not 16:9)"
+        },
+        "camera2": {
+          "processed_fps": 8.9,
+          "loop_fps": 8.87,
+          "pipeline_ms": 100.3,
+          "faces_per_frame": 4.0,
+          "frame_size": "1920x1080 -> 1280x720 (squashed if not 16:9)"
+        }
+      }
+    },
+    {
+      "mode": "cpp-main",
+      "stream": "main",
+      "cpu_cores": 0.72,
+      "students_seen": 6,
+      "npu_bound": "0,1,2",
+      "cameras": {
+        "camera1": {
+          "processed_fps": 14.47,
+          "decode_fps": 20.0,
+          "detect_ms": 46.32,
+          "recognize_ms": 68.82,
+          "faces_per_frame": 5,
+          "frame_size": "1920x1080 -> 1280x720",
+          "backend": "GStreamer (H.264)"
+        },
+        "camera2": {
+          "processed_fps": 14.47,
+          "decode_fps": 20.0,
+          "detect_ms": 44.55,
+          "recognize_ms": 68.71,
+          "faces_per_frame": 4,
+          "frame_size": "1920x1080 -> 1280x720",
+          "backend": "GStreamer (H.264)"
+        }
+      }
+    },
+    {
+      "mode": "cpp-sub",
+      "stream": "sub",
+      "cpu_cores": 0.42,
+      "students_seen": 6,
+      "npu_bound": "0,1,2",
+      "cameras": {
+        "camera1": {
+          "processed_fps": 14.4,
+          "decode_fps": 20.0,
+          "detect_ms": 48.72,
+          "recognize_ms": 69.03,
+          "faces_per_frame": 5,
+          "frame_size": "704x576 -> 1024x576",
+          "backend": "GStreamer (H.264)"
+        },
+        "camera2": {
+          "processed_fps": 14.43,
+          "decode_fps": 20.0,
+          "detect_ms": 48.02,
+          "recognize_ms": 69.15,
+          "faces_per_frame": 4,
+          "frame_size": "704x576 -> 1024x576",
+          "backend": "GStreamer (H.264)"
+        }
+      }
+    }
+  ]
+}

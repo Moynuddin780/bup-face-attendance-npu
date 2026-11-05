@@ -1,0 +1,201 @@
+{% extends "base.html" %}
+{% block title %}Students{% endblock %}
+{% block topbar_title %}Students{% endblock %}
+{% block extra_head %}
+<style>
+  .pick-row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;}
+  .pick-row .form-control{width:auto;min-width:150px;}
+  .pick-row .grow{flex:1;min-width:220px;}
+  .pick-sep{width:1px;align-self:stretch;background:var(--border);margin:0 4px;}
+  .ov-batch{display:grid;grid-template-columns:110px 1fr;gap:14px;align-items:start;padding:14px 0;border-bottom:1px solid var(--border);}
+  .ov-batch:last-child{border-bottom:none;padding-bottom:0;}
+  .ov-batch:first-child{padding-top:0;}
+  .ov-batch-name{font-weight:700;font-size:15px;color:var(--primary);padding-top:10px;}
+  .ov-secs{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:10px;}
+  .ov-sec{display:block;padding:12px 14px;border:1px solid var(--border);border-radius:10px;background:#f8fafc;text-decoration:none;color:var(--text);transition:all .15s;}
+  .ov-sec:hover{border-color:var(--primary);background:#eff6ff;transform:translateY(-1px);}
+  .ov-sec-title{font-weight:700;font-size:14px;}
+  .ov-sec-count{font-size:22px;font-weight:800;color:var(--primary);margin:2px 0;font-variant-numeric:tabular-nums;}
+  .ov-sec-count small{font-size:12px;font-weight:600;color:var(--text-muted);}
+  .ov-sec-meta{font-size:11.5px;color:var(--text-muted);}
+  .ov-sec-meta .ok{color:var(--success);font-weight:600;}
+  .ov-sec-meta .warn{color:var(--warning);font-weight:600;}
+  .list-head{display:flex;align-items:center;gap:12px;flex-wrap:wrap;}
+  .list-head .grow{flex:1;}
+  @media(max-width:640px){.ov-batch{grid-template-columns:1fr;gap:6px;}.ov-batch-name{padding-top:0;}}
+  @media(max-width:900px){
+    .pick-sep{display:none;}
+    .pick-row, .pick-row form{width:100%;}
+    .pick-row .form-control{flex:1 1 140px;min-width:0;}
+    .ov-secs{grid-template-columns:repeat(auto-fill,minmax(150px,1fr));}
+    .list-head #search{max-width:none !important;flex:1 1 100%;order:3;}
+  }
+</style>
+{% endblock %}
+{% block content %}
+{% set class_view = students is not none and not sel.q %}
+<div class="page-header">
+  <div><h1>Students</h1>
+    <div class="breadcrumb"><a href="{{ url_for('dashboard') }}">Dashboard</a> ›
+      {% if students is none %}Students{% else %}<a href="{{ url_for('list_students') }}">Students</a> ›
+        {% if sel.q %}Search{% else %}{{ sel.dept }} · Batch {{ sel.batch }} · Section {{ sel.section }}{% endif %}{% endif %}</div>
+  </div>
+  <a href="{{ url_for('add_student', dept=sel.dept or None, batch=sel.batch or None, section=sel.section or None) }}" class="btn btn-primary"><i class="fa-solid fa-plus"></i> Add Student</a>
+</div>
+
+<!-- choose the class: (department) → batch → section -->
+<div class="card" style="margin-bottom:16px;">
+  <div class="card-body" style="padding:14px 18px;">
+    <div class="pick-row">
+      <form method="GET" action="{{ url_for('list_students') }}" class="pick-row" id="pick">
+        {% if fixed_dept %}
+        <input type="hidden" name="dept" id="f-dept" value="{{ fixed_dept }}"/>
+        {% else %}
+        <select class="form-control" name="dept" id="f-dept" required>
+          <option value="">Department</option>
+          {% for d in tree %}<option value="{{ d }}" {% if d == sel.dept %}selected{% endif %}>{{ d }} – {{ dept_names.get(d, '') }}</option>{% endfor %}
+        </select>
+        {% endif %}
+        <select class="form-control" name="batch" id="f-batch" required></select>
+        <select class="form-control" name="section" id="f-section" required></select>
+        <button class="btn btn-primary" id="f-go"><i class="fa-solid fa-users"></i> Show Students</button>
+      </form>
+      <span class="pick-sep"></span>
+      <form method="GET" action="{{ url_for('list_students') }}" class="pick-row grow">
+        <input class="form-control grow" name="q" value="{{ sel.q }}" placeholder="🔍  Find a student by name or ID (all batches)…" minlength="2"/>
+        <button class="btn btn-outline"><i class="fa-solid fa-magnifying-glass"></i> Search</button>
+      </form>
+    </div>
+  </div>
+</div>
+
+{% if students is none %}
+  {# overview: every batch and section, with how many students are ready for face recognition #}
+  {% for d, batches in tree.items() %}
+  <div class="card" style="margin-bottom:16px;">
+    <div class="card-header">
+      <h3><i class="fa-solid fa-building-columns"></i> {{ d }} – <span style="color:var(--text-muted);font-weight:500;">{{ dept_names.get(d, '') }}</span></h3>
+      <span class="badge badge-primary">{{ batches|length }} batch{{ 'es' if batches|length != 1 }}</span>
+    </div>
+    <div class="card-body">
+      {% for b, secs in batches.items() %}
+      <div class="ov-batch">
+        <div class="ov-batch-name">Batch {{ b }}</div>
+        <div class="ov-secs">
+          {% for x, c in secs.items() %}
+          <a class="ov-sec" href="{{ url_for('list_students', dept=d, batch=b, section=x) }}">
+            <div class="ov-sec-title"><i class="fa-solid fa-users"></i> Section {{ x }}</div>
+            <div class="ov-sec-count">{{ c.total }} <small>student{{ 's' if c.total != 1 }}</small></div>
+            <div class="ov-sec-meta">
+              <span class="{{ 'ok' if c.ready == c.total else 'warn' }}"><i class="fa-solid fa-circle-check"></i> {{ c.ready }} face ready</span>
+              {% if c.no_photos %} · <span class="warn">{{ c.no_photos }} without photos</span>{% endif %}
+            </div>
+          </a>
+          {% endfor %}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% else %}
+  <div class="card"><div class="empty-state"><i class="fa-solid fa-user-graduate"></i><p>No students added yet. <a href="{{ url_for('add_student') }}">Add one</a>.</p></div></div>
+  {% endfor %}
+{% else %}
+<div class="card">
+  <div class="card-header list-head">
+    <h3 class="grow">
+      {% if sel.q %}<i class="fa-solid fa-magnifying-glass"></i> Results for “{{ sel.q }}”
+      {% else %}<i class="fa-solid fa-users"></i> {{ sel.dept }} · Batch {{ sel.batch }} · Section {{ sel.section }}{% endif %}
+      {% set ready = students.values()|selectattr('embedding')|map(attribute='embedding')|selectattr('faces')|list|length %}
+      <span style="font-weight:500;color:var(--text-muted);font-size:13px;margin-left:8px;">{{ students|length }} student{{ 's' if students|length != 1 }} · {{ ready }} face ready</span>
+    </h3>
+    {% if students %}<input class="form-control" id="search" placeholder="Filter this list…" oninput="filterTable()" style="max-width:240px;"/>{% endif %}
+    <a href="{{ url_for('list_students') }}" class="btn btn-outline btn-sm"><i class="fa-solid fa-layer-group"></i> All batches</a>
+  </div>
+  <div class="table-wrap">
+    {% if students %}
+    <table id="stbl">
+      <thead><tr><th>ID</th><th>Name</th>{% if not class_view %}<th>Dept</th><th>Batch</th>{% endif %}<th>Section</th><th>Photos</th><th>Face Data</th><th>Actions</th></tr></thead>
+      <tbody>
+      {% for sid, s in students.items() %}
+      <tr>
+        <td><code>{{ sid }}</code></td>
+        <td><b>{{ s.name }}</b></td>
+        {% if not class_view %}
+        <td><span class="badge badge-primary">{{ s.dept_code }}</span></td>
+        <td>{{ s.batch }}</td>
+        {% endif %}
+        <td>
+          <span class="badge badge-info">{% if not class_view or s.batch != sel.batch %}{{ s.batch }} {% endif %}{{ s.section }}</span>
+          {% for x in s.extra_sections or [] %}<span class="badge badge-info" title="Also attends batch {{ x.batch }}, section {{ x.section }}">+ {% if x.batch != s.batch %}{{ x.batch }} {% endif %}{{ x.section }}</span>{% endfor %}
+        </td>
+        <td>
+          {% if s.image_count and s.image_count > 0 %}
+          <span class="badge badge-success"><i class="fa-solid fa-images"></i> {{ s.image_count }}</span>
+          {% else %}
+          <span class="badge badge-danger"><i class="fa-solid fa-image-slash"></i> No photos</span>
+          {% endif %}
+        </td>
+        <td>
+          {% set e = s.embedding %}
+          {% if e and e.faces %}
+          <span class="badge badge-success" title="Face template from {{ e.faces }} of {{ e.photos }} photos · {{ e.updated }}"><i class="fa-solid fa-circle-check"></i> Ready · {{ e.faces }}/{{ e.photos }}</span>
+          {% elif e and e.photos %}
+          <span class="badge badge-danger" title="No face was found in the photos"><i class="fa-solid fa-triangle-exclamation"></i> No face</span>
+          {% elif s.image_count %}
+          <span class="badge badge-warning" title="Built automatically at the next class session"><i class="fa-solid fa-hourglass-half"></i> Pending</span>
+          {% else %}
+          <span style="color:var(--text-muted);">—</span>
+          {% endif %}
+        </td>
+        <td style="display:flex;gap:6px;">
+          <a href="{{ url_for('student_summary', sid=sid) }}" class="btn btn-outline btn-sm btn-icon" title="Summary"><i class="fa-solid fa-chart-bar"></i></a>
+          <a href="{{ url_for('upload_student_images', sid=sid) }}" class="btn btn-outline btn-sm btn-icon" title="Manage Photos"><i class="fa-solid fa-images"></i></a>
+          <a href="{{ url_for('delete_student', sid=sid) }}" class="btn btn-danger btn-sm btn-icon" onclick="return confirm('Delete student {{ s.name }}?')"><i class="fa-solid fa-trash"></i></a>
+        </td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div class="empty-state"><i class="fa-solid fa-user-graduate"></i>
+      <p>{% if sel.q %}No student matches “{{ sel.q }}”.{% else %}No students in this section yet.{% endif %}
+         <a href="{{ url_for('add_student', dept=sel.dept or None, batch=sel.batch or None, section=sel.section or None) }}">Add one</a>.</p></div>
+    {% endif %}
+  </div>
+</div>
+{% endif %}
+
+<script>
+const tree = {{ tree|tojson }};
+const sel = {{ sel|tojson }};
+const deptSel = document.getElementById('f-dept'), batchSel = document.getElementById('f-batch'), secSel = document.getElementById('f-section');
+function fill(selectEl, placeholder, values, chosen, label){
+  selectEl.innerHTML = `<option value="">${placeholder}</option>` +
+    values.map(v => `<option value="${v}" ${v === chosen ? 'selected' : ''}>${label(v)}</option>`).join('');
+  selectEl.disabled = !values.length;
+}
+// numeric batches newest first (JS orders integer-like object keys ascending on its own)
+const byBatch = (a, b) => (isNaN(b) || isNaN(a)) ? a.localeCompare(b) : (+b) - (+a);
+function fillBatches(chosen){
+  const batches = Object.keys(tree[deptSel.value] || {}).sort(byBatch);
+  fill(batchSel, 'Batch', batches, chosen, b => `Batch ${b}`);
+  fillSections(batchSel.value && batchSel.value === sel.batch ? sel.section : '');
+}
+function fillSections(chosen){
+  const secs = (tree[deptSel.value] || {})[batchSel.value] || {};
+  fill(secSel, 'Section', Object.keys(secs).sort(), chosen, x => `Section ${x} (${secs[x].total})`);
+}
+deptSel.addEventListener('change', () => fillBatches(''));
+batchSel.addEventListener('change', () => fillSections(''));
+secSel.addEventListener('change', () => { if (secSel.value) document.getElementById('pick').submit(); });
+fillBatches(sel.batch);
+
+function filterTable(){
+  const q = document.getElementById('search').value.toLowerCase();
+  document.querySelectorAll('#stbl tbody tr').forEach(tr => {
+    tr.style.display = tr.textContent.toLowerCase().includes(q) ? '' : 'none';
+  });
+}
+</script>
+{% endblock %}

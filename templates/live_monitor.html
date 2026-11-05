@@ -1,0 +1,272 @@
+{% extends "base.html" %}
+{% block title %}Live Monitor{% endblock %}
+{% block topbar_title %}Live Monitor{% endblock %}
+{% block extra_head %}
+<style>
+  .lm-bar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:18px;}
+  .lm-kpis{display:flex;gap:10px;flex-wrap:wrap;flex:1 1 560px;}
+  .lm-kpi{flex:1 1 150px;display:flex;align-items:center;gap:10px;padding:10px 16px;border-radius:12px;background:#fff;border:1px solid var(--border);}
+  .lm-kpi i{width:34px;height:34px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:15px;}
+  .lm-kpi b{display:block;font-size:20px;line-height:1.1;color:var(--text);}
+  .lm-kpi small{font-size:11.5px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.4px;font-weight:600;}
+  .lm-ctrl{display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
+  .lm-ctrl input,.lm-ctrl select{height:36px;border:1px solid var(--border);border-radius:9px;padding:0 10px;font:inherit;font-size:13.5px;background:#fff;}
+  .lm-ctrl input{width:220px;}
+  .lm-updated{font-size:12px;color:var(--text-muted);}
+  .lm-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,var(--tile,420px)),1fr));gap:16px;}
+  .lm-tile{background:#fff;border:1px solid var(--border);border-radius:14px;overflow:hidden;display:flex;flex-direction:column;
+    box-shadow:0 1px 4px rgba(15,23,42,.05);transition:box-shadow .2s,transform .2s;}
+  .lm-tile:hover{box-shadow:0 10px 28px rgba(26,60,110,.14);}
+  .lm-head{display:flex;align-items:center;gap:8px;padding:10px 14px;background:linear-gradient(90deg,#0f2747,#1a3c6e);color:#fff;}
+  .lm-live{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:800;letter-spacing:.6px;color:#fecaca;}
+  .lm-live::before{content:"";width:8px;height:8px;border-radius:50%;background:#ef4444;box-shadow:0 0 0 0 rgba(239,68,68,.7);animation:lmpulse 1.6s infinite;}
+  @keyframes lmpulse{0%{box-shadow:0 0 0 0 rgba(239,68,68,.7);}70%{box-shadow:0 0 0 8px rgba(239,68,68,0);}100%{box-shadow:0 0 0 0 rgba(239,68,68,0);}}
+  .lm-where{font-weight:700;font-size:13.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .lm-time{margin-left:auto;font-size:12px;opacity:.85;white-space:nowrap;}
+  .lm-feed{position:relative;background:#0b1220;aspect-ratio:4/3;cursor:zoom-in;}
+  .lm-feed img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;}
+  .lm-wait{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;gap:8px;color:#94a3b8;font-size:13px;}
+  .lm-feed.has-frame .lm-wait{display:none;}
+  .lm-tag{position:absolute;top:8px;left:8px;padding:2px 8px;border-radius:6px;background:rgba(217,119,6,.92);color:#fff;font-size:11px;font-weight:700;}
+  .lm-body{padding:12px 14px;display:flex;flex-direction:column;gap:8px;}
+  .lm-course{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;}
+  .lm-course b{font-size:15px;color:var(--primary);}
+  .lm-course span{font-size:13.5px;font-weight:600;color:var(--text);}
+  .lm-meta{font-size:12.5px;color:var(--text-muted);display:flex;gap:10px;flex-wrap:wrap;}
+  .lm-pres{display:flex;align-items:center;gap:10px;font-size:13px;font-weight:600;}
+  .lm-pbar{flex:1;height:7px;border-radius:7px;background:#e5e7eb;overflow:hidden;}
+  .lm-pbar i{display:block;height:100%;border-radius:7px;background:linear-gradient(90deg,#22c55e,#16a34a);transition:width .5s;}
+  .lm-cams{display:flex;gap:6px;flex-wrap:wrap;}
+  .lm-cam{display:inline-flex;align-items:center;gap:6px;padding:3px 9px;border-radius:999px;font-size:11.5px;font-weight:600;background:#f1f5f9;color:#334155;}
+  .lm-cam::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--c,#94a3b8);}
+  .lm-cam.ok{--c:#16a34a;} .lm-cam.slow{--c:#d97706;} .lm-cam.bad{--c:#dc2626;}
+  .lm-actions{display:flex;gap:8px;padding:0 14px 12px;}
+  .lm-actions .btn{flex:1;justify-content:center;}
+  .lm-empty{padding:60px 20px;text-align:center;color:var(--text-muted);background:#fff;border:1px dashed #cbd5e1;border-radius:14px;}
+  .lm-empty i{font-size:44px;opacity:.35;margin-bottom:12px;}
+  .lm-modal{position:fixed;inset:0;z-index:300;background:rgba(2,6,23,.86);display:none;flex-direction:column;padding:18px;}
+  .lm-modal.open{display:flex;}
+  .lm-mhead{display:flex;align-items:center;gap:12px;color:#fff;margin-bottom:12px;flex-wrap:wrap;}
+  .lm-mhead .lm-where{font-size:16px;}
+  .lm-mhead button{margin-left:auto;background:rgba(255,255,255,.12);color:#fff;border:0;border-radius:9px;padding:8px 14px;cursor:pointer;font:inherit;font-weight:600;}
+  .lm-mimg{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;}
+  .lm-mimg img{max-width:100%;max-height:100%;object-fit:contain;border-radius:8px;}
+  .lm-hidden{display:none !important;}
+  @media(max-width:900px){.lm-ctrl input{width:100%;}.lm-ctrl{width:100%;}}
+</style>
+{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div><h1>Live Monitor</h1>
+    <div class="breadcrumb"><a href="{{ url_for('dashboard') }}">Dashboard</a> › Live Monitor · every running class, live</div>
+  </div>
+</div>
+
+<div class="lm-bar">
+  <div class="lm-kpis">
+    <div class="lm-kpi"><i class="fa-solid fa-chalkboard-user" style="background:#eff6ff;color:var(--primary);"></i><div><b id="k-classes">{{ classes|length }}</b><small>Classes</small></div></div>
+    <div class="lm-kpi"><i class="fa-solid fa-video" style="background:#fef3c7;color:#b45309;"></i><div><b id="k-cams">{{ classes|map(attribute='cameras')|map('length')|sum }}</b><small>Camera channels</small></div></div>
+    <div class="lm-kpi"><i class="fa-solid fa-user-check" style="background:#f0fdf4;color:var(--success);"></i><div><b id="k-present">{{ classes|sum(attribute='present') }} / {{ classes|sum(attribute='total') }}</b><small>Students present</small></div></div>
+  </div>
+  <div class="lm-ctrl">
+    <input type="search" id="lm-search" placeholder="Room, course, teacher…" oninput="lmFilter()"/>
+    <select id="lm-rate" title="Picture refresh">
+      <option value="1000" selected>1 picture / s</option>
+      <option value="500">2 pictures / s</option>
+      <option value="250">4 pictures / s</option>
+    </select>
+    <select id="lm-size" title="Tile size">
+      <option value="340px">Small tiles</option>
+      <option value="420px" selected>Medium tiles</option>
+      <option value="560px">Large tiles</option>
+    </select>
+    <span class="lm-updated" id="lm-updated"></span>
+  </div>
+</div>
+
+<div class="lm-grid" id="lm-grid"></div>
+<div class="lm-empty lm-hidden" id="lm-empty"><i class="fa-solid fa-display"></i><p>No class is running right now. Classes appear here as soon as a teacher starts one.</p></div>
+
+<div class="lm-modal" id="lm-modal" onclick="if(event.target===this)lmClose()">
+  <div class="lm-mhead">
+    <span class="lm-live">LIVE</span>
+    <span class="lm-where" id="lm-mwhere"></span>
+    <span id="lm-minfo" style="opacity:.85;font-size:13px;"></span>
+    <button type="button" onclick="lmClose()"><i class="fa-solid fa-xmark"></i> Close (Esc)</button>
+  </div>
+  <div class="lm-mimg"><img id="lm-mimg" alt=""/></div>
+</div>
+
+<form method="POST" action="{{ url_for('admin_end_session') }}" id="lm-end" style="display:none;">
+  <input type="hidden" name="room_key" id="lm-end-key"/>
+</form>
+
+<script>
+(function(){
+  const STATUS_URL = "{{ url_for('live_monitor_status') }}";
+  const FRAME_BASE = "{{ url_for('live_monitor_frame', key='KEY') }}".replace('KEY', '');
+  const grid = document.getElementById('lm-grid');
+  const tiles = new Map();          // key -> {el, data, alive}
+  let focusKey = null;
+  const rateSel = document.getElementById('lm-rate'), sizeSel = document.getElementById('lm-size');
+  try {   // remembered per browser
+    rateSel.value = localStorage.getItem('lm-rate') || rateSel.value;
+    sizeSel.value = localStorage.getItem('lm-size') || sizeSel.value;
+  } catch (e) {}
+  const applySize = () => grid.style.setProperty('--tile', sizeSel.value);
+  applySize();
+  rateSel.onchange = () => { try { localStorage.setItem('lm-rate', rateSel.value); } catch (e) {} };
+  sizeSel.onchange = () => { applySize(); try { localStorage.setItem('lm-size', sizeSel.value); } catch (e) {} };
+
+  const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+  const fmtMin = s => { const t = Math.floor(Math.max(0, Number(s) || 0) / 6); return (t % 10 ? (t / 10).toFixed(1) : String(t / 10)) + ' min'; };
+  const sleep = ms => new Promise(r => setTimeout(r, ms));
+  const frameUrl = key => FRAME_BASE + key.split('/').map(encodeURIComponent).join('/');
+
+  // Each picture the server makes for a class nobody else watches costs CPU the live classes share:
+  // one picture at a time per tile, paced, and none for tiles scrolled out of view or a hidden page.
+  const seen = new IntersectionObserver(es => es.forEach(e => { const t = tiles.get(e.target.dataset.key); if (t) t.visible = e.isIntersecting; }));
+  async function feedLoop(t, img, interval){
+    let prev = null;
+    while (t.alive) {
+      if (document.hidden || (!interval && !t.visible)) { await sleep(700); continue; }
+      const t0 = performance.now();
+      try {
+        const r = await fetch(frameUrl(t.data.key) + '?t=' + Date.now(), {cache: 'no-store'});
+        if (r.status === 404) { await sleep(2000); continue; }
+        if (r.ok) {
+          const url = URL.createObjectURL(await r.blob());
+          img.src = url;
+          if (prev) URL.revokeObjectURL(prev);
+          prev = url;
+          t.el.querySelector('.lm-feed').classList.add('has-frame');
+        }
+      } catch (e) { await sleep(2000); }
+      const wait = (interval ? interval() : Number(rateSel.value)) - (performance.now() - t0);
+      if (wait > 0) await sleep(wait);
+    }
+    if (prev) URL.revokeObjectURL(prev);
+  }
+
+  function makeTile(d){
+    const card = el('div', 'lm-tile');
+    const head = el('div', 'lm-head');
+    head.append(el('span', 'lm-live', 'LIVE'), el('span', 'lm-where'), el('span', 'lm-time'));
+    const feed = el('div', 'lm-feed');
+    const img = el('img'); img.alt = '';
+    const wait = el('div', 'lm-wait'); wait.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Connecting to the cameras…';
+    const tag = el('span', 'lm-tag', 'Recorded video');
+    feed.append(img, wait, tag);
+    feed.onclick = () => lmOpen(d.key);
+    const body = el('div', 'lm-body');
+    const course = el('div', 'lm-course'); course.append(el('b'), el('span'));
+    const meta = el('div', 'lm-meta');
+    const pres = el('div', 'lm-pres'); const bar = el('div', 'lm-pbar'); bar.append(el('i')); pres.append(el('span'), bar);
+    const cams = el('div', 'lm-cams');
+    body.append(course, meta, pres, cams);
+    const act = el('div', 'lm-actions');
+    const big = el('button', 'btn btn-outline btn-sm'); big.type = 'button'; big.innerHTML = '<i class="fa-solid fa-expand"></i> Enlarge';
+    big.onclick = () => lmOpen(d.key);
+    const end = el('button', 'btn btn-danger btn-sm'); end.type = 'button'; end.innerHTML = '<i class="fa-solid fa-circle-stop"></i> End class';
+    end.onclick = () => {
+      const x = tiles.get(d.key).data;
+      if (!confirm(`End the class ${x.course_id} in Room ${x.room} (${x.teacher_name})? Its attendance is kept: the teacher reviews and saves it on their next page.`)) return;
+      document.getElementById('lm-end-key').value = d.key;
+      document.getElementById('lm-end').submit();
+    };
+    act.append(big, end);
+    card.append(head, feed, body, act);
+    const t = {el: card, img, data: d, alive: true, visible: true};
+    card.dataset.key = d.key;
+    tiles.set(d.key, t);
+    seen.observe(card);
+    update(t, d);
+    feedLoop(t, img);
+    return card;
+  }
+
+  function update(t, d){
+    t.data = d;
+    const c = t.el;
+    c.dataset.search = [d.building, 'floor ' + d.floor, 'room ' + d.room, d.course_id, d.course_name, d.teacher_name, d.section].join(' ').toLowerCase();
+    c.querySelector('.lm-where').textContent = `${d.building} · Floor ${d.floor} · Room ${d.room}`;
+    c.querySelector('.lm-time').textContent = `since ${d.since} · ${fmtMin(d.duration)}`;
+    c.querySelector('.lm-course b').textContent = d.course_id;
+    c.querySelector('.lm-course span').textContent = d.course_name;
+    const meta = c.querySelector('.lm-meta');
+    meta.textContent = '';
+    meta.append(el('span', null, (d.batch ? `Batch ${d.batch} · ` : '') + d.section));
+    const who = el('span'); who.innerHTML = '<i class="fa-solid fa-user-tie"></i> '; who.append(document.createTextNode(d.teacher_name)); meta.append(who);
+    c.querySelector('.lm-pres span').textContent = `Present ${d.present} / ${d.total}` + (d.total ? ` (${Math.round(d.rate)}%)` : '');
+    c.querySelector('.lm-pbar i').style.width = (d.total ? d.present / d.total * 100 : 0) + '%';
+    c.querySelector('.lm-tag').classList.toggle('lm-hidden', !d.test_video);
+    const cams = c.querySelector('.lm-cams'); cams.textContent = '';
+    d.cameras.forEach((k, i) => {
+      const cls = !k.connected ? 'bad' : k.feed_fps >= 18 ? 'ok' : k.feed_fps >= 8 ? 'slow' : 'bad';
+      const chip = el('span', 'lm-cam ' + cls,
+        `Cam ${i + 1} · ${k.source} · ${k.connected ? Math.round(k.feed_fps) + ' fps' : 'no picture'}`);
+      chip.title = `${k.size || ''} · recognition ${Number(k.infer_fps).toFixed(1)} fps · ${k.gpu ? 'GPU' : 'CPU'} decoding · reconnects ${k.reconnects}`;
+      cams.append(chip);
+    });
+    if (focusKey === d.key) lmInfo(d);
+  }
+
+  function render(list){
+    const keys = new Set(list.map(d => d.key));
+    for (const [k, t] of tiles) if (!keys.has(k)) { t.alive = false; seen.unobserve(t.el); t.el.remove(); tiles.delete(k); if (focusKey === k) lmClose(); }
+    list.forEach((d, i) => {
+      const t = tiles.get(d.key);
+      if (t) update(t, d); else grid.append(makeTile(d));
+    });
+    list.forEach(d => grid.append(tiles.get(d.key).el));   // keep building / floor / room order
+    document.getElementById('k-classes').textContent = list.length;
+    document.getElementById('k-cams').textContent = list.reduce((n, d) => n + d.cameras.length, 0);
+    document.getElementById('k-present').textContent =
+      `${list.reduce((n, d) => n + d.present, 0)} / ${list.reduce((n, d) => n + d.total, 0)}`;
+    document.getElementById('lm-empty').classList.toggle('lm-hidden', list.length > 0);
+    lmFilter();
+  }
+
+  async function poll(){
+    try {
+      const r = await fetch(STATUS_URL, {cache: 'no-store'});
+      if (r.redirected || !r.ok) { location.reload(); return; }   // logged out
+      const j = await r.json();
+      render(j.classes);
+      document.getElementById('lm-updated').textContent = 'updated ' + j.time;
+    } catch (e) {}
+  }
+
+  window.lmFilter = function(){
+    const q = document.getElementById('lm-search').value.trim().toLowerCase();
+    tiles.forEach(t => t.el.classList.toggle('lm-hidden', !!q && !t.el.dataset.search.includes(q)));
+  };
+  function lmInfo(d){
+    document.getElementById('lm-mwhere').textContent = `${d.building} · Floor ${d.floor} · Room ${d.room}`;
+    document.getElementById('lm-minfo').textContent =
+      `${d.course_id} ${d.course_name} · ${d.teacher_name} · Present ${d.present}/${d.total} · ${fmtMin(d.duration)}`;
+  }
+  let modalLoop = null;
+  window.lmOpen = function(key){
+    const t = tiles.get(key);
+    if (!t) return;
+    focusKey = key;
+    lmInfo(t.data);
+    document.getElementById('lm-modal').classList.add('open');
+    const img = document.getElementById('lm-mimg');
+    img.removeAttribute('src');
+    modalLoop = {el: t.el, img, data: t.data, alive: true};
+    feedLoop(modalLoop, img, () => 150);   // the enlarged class at up to ~6 pictures / s
+  };
+  window.lmClose = function(){
+    document.getElementById('lm-modal').classList.remove('open');
+    if (modalLoop) modalLoop.alive = false;
+    modalLoop = null; focusKey = null;
+  };
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') lmClose(); });
+
+  render({{ classes|tojson }});
+  setInterval(poll, 3000);
+})();
+</script>
+{% endblock %}

@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% from "_att_toggle.html" import att_toggle, att_assets %}
+{% block title %}Edit Attendance{% endblock %}
+{% block extra_head %}{{ att_assets() }}{% endblock %}
+{% block topbar_title %}Edit Attendance Record{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div><h1>Edit: {{ record.get('course_id','—') }}</h1>
+    <div class="breadcrumb"><a href="{{ url_for('dashboard') }}">Dashboard</a> › <a href="{{ url_for('attendance_history') }}">History</a> › Edit</div>
+  </div>
+</div>
+<div class="alert alert-warning"><i class="fa-solid fa-triangle-exclamation"></i> You can manually override each student's attendance status. Changes are saved permanently.</div>
+{% set all_records = record.get('records', record.get('attendance_records', [])) %}
+{% set n_present = all_records|selectattr('present')|list|length %}
+<div class="card">
+  <div class="card-header">
+    <h3>{{ record.get('date','—') }} · {{ record.get('course_name','') }}</h3>
+    <div style="display:flex;gap:8px;">
+      <button type="button" onclick="attMarkAll('Present')" class="btn btn-success btn-sm"><i class="fa-solid fa-check-double"></i> All Present</button>
+      <button type="button" onclick="attMarkAll('Absent')" class="btn btn-danger btn-sm"><i class="fa-solid fa-xmark"></i> All Absent</button>
+    </div>
+  </div>
+  <div class="att-toolbar">
+    <div class="att-tabs">
+      <button type="button" class="on" data-filter="all">All <span data-count="all">{{ all_records|length }}</span></button>
+      <button type="button" data-filter="Present"><i class="fa-solid fa-circle" style="color:var(--success);font-size:8px;"></i> Present <span data-count="present">{{ n_present }}</span></button>
+      <button type="button" data-filter="Absent"><i class="fa-solid fa-circle" style="color:var(--danger);font-size:8px;"></i> Absent <span data-count="absent">{{ all_records|length - n_present }}</span></button>
+    </div>
+    <div class="att-search"><i class="fa-solid fa-magnifying-glass"></i><input type="search" placeholder="Search name or ID" oninput="attFilter()"/></div>
+  </div>
+  <form method="POST">
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>#</th><th>ID</th><th>Name</th><th>On camera</th><th style="text-align:center;">Attendance</th></tr></thead>
+        <tbody>
+        {% for r in all_records|sort(attribute='name') %}
+        {% set is_present = r.get('present', r.get('status','Absent') == 'Present') %}
+        {% set sid = r.get('student_id', r.get('student_name','')) %}
+        {% set st = 'Present' if is_present else 'Absent' %}
+        <tr class="att-row" data-status="{{ st }}">
+          <td class="att-idx">{{ loop.index }}</td>
+          <td><code>{{ sid }}</code></td>
+          <td><b class="att-name">{{ r.get('name', r.get('student_name','—')) }}</b> <span class="att-edited">edited</span></td>
+          <td>{{ r.get('total_time', r.get('total_detection_time', 0))|mins }}</td>
+          <td style="text-align:center;">{{ att_toggle('status_' ~ sid, st) }}</td>
+        </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <div class="att-empty" style="display:none;">No students match.</div>
+    <div style="padding:18px 22px;display:flex;gap:12px;border-top:1px solid var(--border);">
+      <button type="submit" class="btn btn-accent" style="font-size:15px;padding:11px 28px;"><i class="fa-solid fa-save"></i> Save Changes</button>
+      <a href="{{ url_for('view_record', fname=fname.replace('.json','')) }}" class="btn btn-outline">Cancel</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

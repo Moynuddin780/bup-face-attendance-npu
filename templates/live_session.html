@@ -1,0 +1,158 @@
+{% extends "base.html" %}
+{% block title %}Live Session{% endblock %}
+{% block topbar_title %}Live Attendance Session{% endblock %}
+{% block extra_head %}
+<style>
+  .live-grid{display:grid;grid-template-columns:1fr 380px;gap:20px;}
+  .stat-row{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px;}
+  .live-stat{background:#fff;border-radius:10px;padding:14px;text-align:center;border:1px solid var(--border);}
+  .live-stat .val{font-size:28px;font-weight:800;}
+  .live-stat .lbl{font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;}
+  .student-row{display:flex;align-items:center;gap:10px;padding:9px 14px;border-bottom:1px solid var(--border);font-size:13px;}
+  .student-row:last-child{border-bottom:none;}
+  .status-present{color:var(--success);font-weight:700;}
+  .status-absent{color:var(--danger);font-weight:700;}
+  .override-btn{margin-left:auto;display:flex;gap:5px;}
+  .pulse{animation:pulse 1.5s infinite;}
+  .feed-card{overflow:hidden;}
+  .feed-box{position:relative;background:#0b1730;}
+  .feed-box img{width:100%;display:block;min-height:120px;max-height:calc(100vh - 150px);object-fit:contain;}
+  .feed-state{position:absolute;inset:0;display:none;align-items:center;justify-content:center;gap:8px;color:#cbd5e1;font-size:14px;}
+  .feed-box.waiting .feed-state{display:flex;}
+  .feed-btn{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.25);color:#fff;border-radius:7px;padding:5px 10px;font-size:12px;cursor:pointer;}
+  .feed-box:fullscreen{display:flex;align-items:center;}
+  .feed-box:fullscreen img{max-height:100vh;object-fit:contain;}
+  .students-card{max-height:520px;display:flex;flex-direction:column;}
+  @media(max-width:900px){
+    .feed-box img{max-height:none;}
+    .live-grid{grid-template-columns:1fr;gap:14px;}
+    .feed-sub{display:none;}
+    .students-card{max-height:none;}
+    .students-card #student-list{max-height:65vh;}
+    .stat-row{grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;}
+    .live-stat{padding:10px 6px;}
+    .live-stat .val{font-size:22px;}
+    .live-stat .lbl{font-size:10px;}
+    .student-row{padding:10px 12px;}
+    .override-btn .btn-icon{width:38px;height:38px;}   /* finger-sized */
+  }
+  @media(max-width:420px){.stat-row{grid-template-columns:repeat(2,minmax(0,1fr));}}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
+</style>
+{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1><span class="pulse" style="color:var(--danger);">●</span> Live Session</h1>
+    <div style="display:flex;gap:8px;margin-top:6px;flex-wrap:wrap;">
+      <span class="badge badge-primary">{{ course_id }}</span>
+      <span class="badge badge-info">{{ course.name }}</span>
+      <span class="badge badge-success">Batch {{ course.batch }} · {{ section }}</span>
+      <span class="badge badge-warning">Floor {{ floor }} · Room {{ room }}</span>
+      <span class="gpu-pill"><i class="fa-solid fa-microchip"></i> {{ faculty }}</span>
+      {% if test_video %}<span class="badge badge-warning" title="A camera of this room plays an uploaded recording"><i class="fa-solid fa-film"></i> Recorded video test</span>{% endif %}
+      {% if resumed_at %}<span class="badge badge-info" title="The server restarted during this class; it continued with the attendance measured so far"><i class="fa-solid fa-rotate-right"></i> Resumed at {{ resumed_at }}</span>{% endif %}
+    </div>
+  </div>
+  <form method="POST" action="{{ url_for('end_session') }}" onsubmit="return confirm('End session and generate attendance report?')">
+    <button type="submit" class="btn btn-danger" style="font-size:14px;padding:11px 22px;">
+      <i class="fa-solid fa-stop"></i> End Session
+    </button>
+  </form>
+</div>
+
+<!-- Live stats -->
+<div class="stat-row">
+  <div class="live-stat"><div class="val" id="ls-total">—</div><div class="lbl">Total</div></div>
+  <div class="live-stat" style="border-color:var(--success)"><div class="val" id="ls-present" style="color:var(--success);">—</div><div class="lbl">Present</div></div>
+  <div class="live-stat" style="border-color:var(--danger)"><div class="val" id="ls-absent" style="color:var(--danger);">—</div><div class="lbl">Absent</div></div>
+  <div class="live-stat"><div class="val" id="ls-time">0 min</div><div class="lbl">Duration</div></div>
+</div>
+
+<div class="live-grid">
+  <!-- Camera feed -->
+  <div class="card feed-card">
+    <div class="card-header" style="background:#0f2349;color:#fff;">
+      <h3 style="color:#fff;"><i class="fa-solid fa-video"></i> Dual Camera Feed</h3>
+      <span class="feed-sub" style="font-size:12px;opacity:.7;">Camera 1 on top · Camera 2 below</span>
+      <button type="button" class="feed-btn" onclick="toggleFeedFullscreen()" title="Full screen"><i class="fa-solid fa-expand"></i></button>
+    </div>
+    <div class="feed-box waiting" id="feed-box">
+      <img id="feed" src="{{ url_for('video_feed') }}" alt="Camera Feed"/>
+      <div class="feed-state"><i class="fa-solid fa-spinner fa-spin"></i> Connecting to the cameras…</div>
+    </div>
+  </div>
+
+  <!-- Student list -->
+  <div class="card students-card">
+    <div class="card-header">
+      <h3><i class="fa-solid fa-users"></i> Students</h3>
+      <span id="rate-badge" class="badge badge-info">—%</span>
+    </div>
+    <div style="overflow-y:auto;flex:1;" id="student-list">
+      <div class="empty-state"><i class="fa-solid fa-spinner fa-spin"></i><p>Loading...</p></div>
+    </div>
+  </div>
+</div>
+
+<script>
+// MJPEG live view: reconnect by itself when the stream drops (phone Wi-Fi hand-over, screen lock)
+const feed = document.getElementById('feed'), feedBox = document.getElementById('feed-box');
+const FEED_URL = "{{ url_for('video_feed') }}";
+let feedRetry = null;
+function reconnectFeed(delay){
+  clearTimeout(feedRetry);
+  feedBox.classList.add('waiting');
+  feedRetry = setTimeout(() => { feed.src = FEED_URL + '?t=' + Date.now(); }, delay);
+}
+feed.addEventListener('load', () => feedBox.classList.remove('waiting'));
+setInterval(() => { if (feed.naturalWidth) feedBox.classList.remove('waiting'); }, 500);   // MJPEG may never fire 'load'
+feed.addEventListener('error', () => reconnectFeed(2000));
+document.addEventListener('visibilitychange', () => { if (!document.hidden) reconnectFeed(0); });
+function toggleFeedFullscreen(){
+  if (document.fullscreenElement) document.exitFullscreen();
+  else if (feedBox.requestFullscreen) feedBox.requestFullscreen().catch(() => {});
+  else if (feed.webkitEnterFullscreen) feed.webkitEnterFullscreen();
+}
+// time in tenths of a minute, counted up (0.1 min = 6 s), as on the live video: 0 min, 0.1 min … 1 min, 1.5 min
+function fmtMin(sec){
+  const t = Math.floor(Math.max(0, Number(sec) || 0) / 6);
+  return (t % 10 ? (t / 10).toFixed(1) : String(t / 10)) + ' min';
+}
+function updateStats(){
+  fetch('/live_stats').then(r=>r.json()).then(s=>{
+    if(!('total' in s)){ location.href = "{{ url_for('live_session') }}"; return; }   // class ended (e.g. by an admin)
+    if(!s.total) return;
+    document.getElementById('ls-total').textContent = s.total;
+    document.getElementById('ls-present').textContent = s.present;
+    document.getElementById('ls-absent').textContent = s.absent;
+    document.getElementById('ls-time').textContent = fmtMin(s.duration);
+    document.getElementById('rate-badge').textContent = s.rate+'%';
+  });
+}
+function updateList(){
+  fetch('/live_list').then(r=>r.json()).then(rows=>{
+    if(!rows.length) return;
+    const html = rows.sort((a,b)=>a.name.localeCompare(b.name)).map(r=>`
+      <div class="student-row">
+        <div style="flex:1;">
+          <div style="font-weight:600;">${r.name}</div>
+          <div style="font-size:11px;color:#9ca3af;">${r.student_id} · ${fmtMin(r.total_time)} · ${r.detection_count} detections</div>
+        </div>
+        <div class="override-btn">
+          <button onclick="markStudent('${r.student_id}','present')" class="btn btn-success btn-sm btn-icon" title="Mark Present" ${r.status=='Present'?'style="opacity:1;box-shadow:0 0 0 2px var(--success)"':'style="opacity:0.4"'}><i class="fa-solid fa-check"></i></button>
+          <button onclick="markStudent('${r.student_id}','absent')" class="btn btn-danger btn-sm btn-icon" title="Mark Absent" ${r.status=='Absent'&&r.total_time<60?'style="opacity:1;box-shadow:0 0 0 2px var(--danger)"':'style="opacity:0.4"'}><i class="fa-solid fa-xmark"></i></button>
+        </div>
+      </div>`).join('');
+    document.getElementById('student-list').innerHTML = html;
+  });
+}
+function markStudent(sid, status){
+  fetch('/manual_mark',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({student_id:sid,status})})
+    .then(()=>updateList());
+}
+setInterval(updateStats,2000);
+setInterval(updateList,3000);
+updateStats(); updateList();
+</script>
+{% endblock %}

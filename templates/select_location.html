@@ -1,0 +1,174 @@
+{% extends "base.html" %}
+{% block title %}Select Classroom{% endblock %}
+{% block topbar_title %}Select Classroom{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div><h1>Select Classroom</h1>
+    <div class="breadcrumb"><a href="{{ url_for('take_attendance') }}">My Courses</a> › Select Room</div>
+  </div>
+</div>
+<div style="display:flex;gap:6px;margin-bottom:20px;flex-wrap:wrap;">
+  <span class="badge badge-primary" style="font-size:13px;padding:6px 12px;">{{ course_id }}</span>
+  <span class="badge badge-info" style="font-size:13px;padding:6px 12px;">{{ course.name }}</span>
+  <span class="badge badge-warning" style="font-size:13px;padding:6px 12px;">Batch {{ course.batch }}</span>
+  <span class="badge badge-success" style="font-size:13px;padding:6px 12px;">{{ bup[faculty_code].building }}</span>
+</div>
+
+<form method="POST" action="{{ url_for('start_attendance') }}" id="loc-form">
+  <input type="hidden" name="course_id" value="{{ course_id }}"/>
+  <input type="hidden" name="faculty_code" value="{{ faculty_code }}"/>
+  <input type="hidden" name="floor" id="sel_floor" required/>
+  <input type="hidden" name="room" id="sel_room" required/>
+
+  {% if fixed_section %}
+  {# chosen on the class card: shown, not asked again #}
+  <input type="radio" name="section" value="{{ default_section }}" checked hidden/>
+  <div class="card" style="margin-bottom:20px;">
+    <div class="card-body" style="padding:14px 18px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+      <b style="margin-right:6px;"><i class="fa-solid fa-users"></i> Class</b>
+      <span class="sec-opt sec-fixed">{% if default_section == 'ALL' %}Sections {{ sections|join(' + ') }} · joint class <small>{{ batch_total }} students</small>
+        {% else %}Section {{ default_section }} <small>{{ sections.get(default_section, 0) }} students</small>{% endif %}</span>
+      <a href="{{ url_for('take_attendance') }}" style="font-size:13px;margin-left:4px;">Change</a>
+    </div>
+  </div>
+  {% else %}
+  <div class="card" style="margin-bottom:20px;">
+    <div class="card-body" style="padding:14px 18px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+      <b style="margin-right:6px;"><i class="fa-solid fa-users"></i> Section for this class</b>
+      {% for x, n in sections.items() %}
+      <label class="sec-opt"><input type="radio" name="section" value="{{ x }}" {% if x == default_section %}checked{% endif %}/>
+        Section {{ x }} <small>{{ n }} students</small></label>
+      {% endfor %}
+      {% if sections|length > 1 %}
+      <label class="sec-opt"><input type="radio" name="section" value="ALL"/> All sections together <small>{{ batch_total }} students</small></label>
+      {% elif not sections %}
+      <span style="color:var(--danger);font-size:13px;">No students are enrolled in batch {{ course.batch }} yet.</span>
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
+  <style>
+    .sec-opt{display:inline-flex;align-items:center;gap:7px;padding:8px 14px;border:1px solid var(--border);border-radius:8px;background:#f8fafc;cursor:pointer;font-weight:600;font-size:14px;}
+    .sec-opt small{font-weight:500;color:var(--text-muted);}
+    .sec-opt:has(input:checked){border-color:var(--primary);background:#eff6ff;color:var(--primary);}
+    .sec-fixed{cursor:default;border-color:var(--primary);background:#eff6ff;color:var(--primary);}
+  </style>
+
+  <div class="grid-2" style="display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start;">
+    <!-- Floor selection -->
+    <div class="card">
+      <div class="card-header"><h3><i class="fa-solid fa-layer-group"></i> Select Floor</h3></div>
+      <div class="card-body" style="padding:14px;">
+        <div style="display:flex;flex-direction:column;gap:8px;max-height:420px;overflow-y:auto;">
+          {% for floor_str, fdata in floors_info.items() %}
+          <button type="button" class="floor-btn" data-floor="{{ floor_str }}"
+            style="padding:12px 16px;border:1px solid var(--border);border-radius:8px;background:#f8fafc;text-align:left;cursor:pointer;transition:all .15s;">
+            <div style="font-weight:700;font-size:14px;">Floor {{ floor_str }}</div>
+            {% if fdata.dept_name %}
+            <div style="font-size:12px;color:var(--text-muted);">{{ fdata.dept_code }} – {{ fdata.dept_name }}</div>
+            {% endif %}
+            <span class="busy-tag" style="display:none;margin-top:4px;font-size:11px;font-weight:600;padding:2px 8px;border-radius:20px;background:#fee2e2;color:#991b1b;"></span>
+          </button>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+
+    <!-- Room selection -->
+    <div class="card">
+      <div class="card-header"><h3><i class="fa-solid fa-door-open"></i> Select Room</h3></div>
+      <div class="card-body" style="padding:14px;">
+        <div id="room-list" style="display:flex;flex-direction:column;gap:8px;">
+          <div style="text-align:center;color:var(--text-muted);padding:30px 0;"><i class="fa-solid fa-arrow-left"></i> Select a floor first</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div style="margin-top:20px;">
+    <button type="submit" class="btn btn-accent" id="start-btn" disabled style="padding:14px 32px;font-size:15px;">
+      <i class="fa-solid fa-play"></i> Start Face Recognition Session
+    </button>
+  </div>
+</form>
+
+<script>
+const floorsInfo = {{ floors_info|tojson }};
+const STATUS_URL = "{{ url_for('room_status', faculty=faculty_code) }}";
+let selFloor = null, selRoom = null;
+const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+function selectRoom(room){
+  selRoom = room;
+  document.getElementById('sel_room').value = room || '';
+  updateStart();
+  document.querySelectorAll('.room-btn:not([disabled])').forEach(b=>{
+    const on = b.dataset.room === room;
+    b.style.background = on ? '#f0fdf4' : '#f8fafc';
+    b.style.borderColor = on ? 'var(--success)' : 'var(--border)';
+  });
+}
+
+function updateStart(){   // a room and the class's section are both needed
+  document.getElementById('start-btn').disabled = !(selRoom && document.querySelector('input[name="section"]:checked'));
+}
+document.querySelectorAll('input[name="section"]').forEach(r => r.addEventListener('change', updateStart));
+
+function renderRooms(){
+  const rl = document.getElementById('room-list');
+  if (!selFloor) return;
+  const rooms = floorsInfo[selFloor]?.rooms || {};
+  const busy = floorsInfo[selFloor]?.busy || {};
+  rl.innerHTML = Object.keys(rooms).map(r=>{
+    const b = busy[r], n = rooms[r].cams;
+    if (b) return `
+    <button type="button" class="room-btn" disabled data-room="${r}" title="This room is in use — choose another room"
+      style="padding:12px 16px;border:1px solid #fecaca;border-radius:8px;background:#fef2f2;text-align:left;cursor:not-allowed;opacity:.85;">
+      <div style="font-weight:700;font-size:14px;color:#991b1b;"><i class="fa-solid fa-lock"></i> Room ${r} <span style="font-weight:600;font-size:11px;margin-left:6px;padding:2px 8px;border-radius:20px;background:#fee2e2;">IN USE</span></div>
+      <div style="font-size:12px;color:#7f1d1d;">${esc(b.teacher_name)} · ${esc(b.course_id)}${b.course_name ? ' – ' + esc(b.course_name) : ''}${b.section ? ' · ' + esc(b.section) : ''} · since ${esc(b.since)}</div>
+    </button>`;
+    return `
+    <button type="button" class="room-btn" data-room="${r}" ${n ? '' : 'disabled'}
+      style="padding:12px 16px;border:1px solid var(--border);border-radius:8px;background:#f8fafc;text-align:left;cursor:${n ? 'pointer' : 'not-allowed'};transition:all .15s;${n ? '' : 'opacity:.6;'}">
+      <div style="font-weight:700;font-size:14px;"><i class="fa-solid fa-door-open"></i> Room ${r}</div>
+      <div style="font-size:12px;color:var(--text-muted);">${n ? `${n} IP Camera${n > 1 ? 's' : ''} · Available` : 'No camera configured'}</div>
+    </button>`;
+  }).join('');
+  rl.querySelectorAll('.room-btn:not([disabled])').forEach(rb=>rb.addEventListener('click',()=>selectRoom(rb.dataset.room)));
+  // a room taken by someone else since it was selected cannot be started any more
+  selectRoom(selRoom && !busy[selRoom] && rooms[selRoom]?.cams ? selRoom : null);
+}
+
+function renderFloorBadges(){
+  document.querySelectorAll('.floor-btn').forEach(btn=>{
+    const n = Object.keys(floorsInfo[btn.dataset.floor]?.busy || {}).length;
+    const tag = btn.querySelector('.busy-tag');
+    tag.textContent = n ? `${n} room${n > 1 ? 's' : ''} in use` : '';
+    tag.style.display = n ? 'inline-block' : 'none';
+  });
+}
+
+document.querySelectorAll('.floor-btn').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    selFloor = btn.dataset.floor; selRoom = null;
+    document.getElementById('sel_floor').value = selFloor;
+    document.querySelectorAll('.floor-btn').forEach(b=>{ b.style.background='#f8fafc'; b.style.borderColor='var(--border)'; });
+    btn.style.background='#eff6ff'; btn.style.borderColor='var(--primary)';
+    renderRooms();
+  });
+});
+
+// live lock state: rooms other teachers take (or free) while this page is open
+async function refreshStatus(){
+  try {
+    const r = await fetch(STATUS_URL, {cache: 'no-store'});
+    if (!r.ok) return;
+    const busy = await r.json();
+    Object.keys(floorsInfo).forEach(f => floorsInfo[f].busy = busy[f] || {});
+    renderFloorBadges(); renderRooms();
+  } catch (e) {}
+}
+renderFloorBadges();
+setInterval(() => { if (!document.hidden) refreshStatus(); }, 10000);
+</script>
+{% endblock %}

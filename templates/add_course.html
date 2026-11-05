@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+{% block title %}Add Course{% endblock %}
+{% block topbar_title %}Add Course{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div><h1>Add Course</h1><div class="breadcrumb"><a href="{{ url_for('dashboard') }}">Dashboard</a> › <a href="{{ url_for('list_courses') }}">Courses</a> › Add</div></div>
+</div>
+<div class="card" style="max-width:650px;">
+  <div class="card-header"><h3><i class="fa-solid fa-book-open"></i> New Course</h3></div>
+  <div class="card-body">
+    <form method="POST">
+      <div class="form-grid">
+        <div class="form-group">
+          <label>Course ID</label>
+          <input class="form-control" name="course_id" placeholder="CSE401" required/>
+          <div class="form-hint">Unique identifier, e.g. ICT301, CSE205</div>
+        </div>
+        <div class="form-group">
+          <label>Course Name</label>
+          <input class="form-control" name="name" placeholder="Machine Learning" required/>
+        </div>
+      </div>
+      {% if not fixed_faculty %}
+      <div class="form-grid">
+        <div class="form-group">
+          <label>Faculty</label>
+          <select class="form-control" name="faculty_code" id="faculty_sel" onchange="updateDepts()" required>
+            <option value="">-- Faculty --</option>
+            {% for fcode, finfo in bup.items() %}<option value="{{ fcode }}">{{ fcode }}</option>{% endfor %}
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Department</label>
+          <select class="form-control" name="dept_code" id="dept_sel" required>
+            <option value="">-- Select Faculty First --</option>
+          </select>
+        </div>
+      </div>
+      {% else %}
+      <input type="hidden" name="faculty_code" value="{{ fixed_faculty }}"/>
+      <input type="hidden" name="dept_code" value="{{ fixed_dept }}"/>
+      {% endif %}
+      <div class="form-grid">
+        <div class="form-group">
+          <label>Batch (Year)</label>
+          <input class="form-control" name="batch" placeholder="2022" required/>
+        </div>
+        <div class="form-group">
+          <label>Sections</label>
+          <div class="form-control" style="background:#f8fafc;color:var(--text-muted);">All sections of the batch</div>
+          <div class="form-hint">The teacher takes this course with every section (A, B …); the section is chosen when a class starts.</div>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Assign Teacher (optional)</label>
+        <select class="form-control" name="teacher_username">
+          <option value="">-- Assign Later --</option>
+          {% for uname, t in dept_teachers.items() %}
+          <option value="{{ uname }}">{{ t.name }} ({{ uname }})</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div style="display:flex;gap:12px;">
+        <button type="submit" class="btn btn-primary"><i class="fa-solid fa-save"></i> Add Course</button>
+        <a href="{{ url_for('list_courses') }}" class="btn btn-outline">Cancel</a>
+      </div>
+    </form>
+  </div>
+</div>
+<script>
+const bup = {{ bup|tojson }};
+function updateDepts(){
+  const fac = document.getElementById('faculty_sel')?.value;
+  const ds = document.getElementById('dept_sel');
+  if(!ds) return;
+  ds.innerHTML = '<option value="">-- Select Department --</option>';
+  if(fac && bup[fac]){
+    Object.entries(bup[fac].departments).forEach(([code,info])=>{
+      ds.innerHTML += `<option value="${code}">${code} – ${info.name}</option>`;
+    });
+  }
+}
+</script>
+{% endblock %}

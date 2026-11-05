@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="320" viewBox="0 0 1280 320" role="img" aria-label="BUP Face Attendance — DEEPX DX-M1 NPU edition">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#07161c"/><stop offset="1" stop-color="#0b2a33"/></linearGradient>
+    <pattern id="dots" width="24" height="24" patternUnits="userSpaceOnUse"><circle cx="2" cy="2" r="1.2" fill="#ffffff" fill-opacity=".07"/></pattern>
+    <linearGradient id="fade" x1="0" y1="0" x2="1" y2="0"><stop offset=".45" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#fff" stop-opacity="1"/></linearGradient>
+    <mask id="m"><rect width="1280" height="320" fill="url(#fade)"/></mask>
+  </defs>
+  <rect width="1280" height="320" rx="20" fill="url(#bg)"/>
+  <rect width="1280" height="320" rx="20" fill="url(#dots)" mask="url(#m)"/>
+  <g font-family="Inter, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif">
+    <text x="80" y="104" font-size="18" font-weight="600" letter-spacing="3" fill="#2dd4bf">DEEPX DX-M1 NPU EDITION</text>
+    <text x="78" y="170" font-size="62" font-weight="800" letter-spacing="-1.5" fill="#ffffff">BUP Face Attendance</text>
+    <text x="80" y="208" font-size="20" fill="#b6c2d9">Real-time classroom attendance from IP-CCTV · C++ engine behind a Flask app</text>
+    <g transform="translate(80,232)"><rect width="72" height="34" rx="17" fill="none" stroke="#2dd4bf" stroke-opacity=".55"/><text x="36" y="22" text-anchor="middle" font-size="14" font-weight="600" fill="#2dd4bf">C++14</text></g><g transform="translate(164,232)"><rect width="164" height="34" rx="17" fill="none" stroke="#2dd4bf" stroke-opacity=".55"/><text x="82" y="22" text-anchor="middle" font-size="14" font-weight="600" fill="#2dd4bf">SCRFD + ArcFace</text></g><g transform="translate(340,232)"><rect width="72" height="34" rx="17" fill="none" stroke="#2dd4bf" stroke-opacity=".55"/><text x="36" y="22" text-anchor="middle" font-size="14" font-weight="600" fill="#2dd4bf">Flask</text></g><g transform="translate(424,232)"><rect width="81" height="34" rx="17" fill="none" stroke="#2dd4bf" stroke-opacity=".55"/><text x="41" y="22" text-anchor="middle" font-size="14" font-weight="600" fill="#2dd4bf">Docker</text></g>
+  </g>
+  <!-- detection-box motif -->
+  <g transform="translate(900,62)" font-family="Inter, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif">
+    <rect x="0" y="0" width="300" height="196" rx="10" fill="#ffffff" fill-opacity=".04" stroke="#ffffff" stroke-opacity=".12"/>
+    <g stroke="#2dd4bf" stroke-width="3" fill="none" stroke-linecap="round">
+      <path d="M40 74v-24h24M236 50h24v24M260 150v24h-24M64 174H40v-24"/>
+    </g>
+    <rect x="86" y="62" width="128" height="96" rx="4" fill="#2dd4bf" fill-opacity=".12" stroke="#2dd4bf" stroke-width="2"/>
+    <rect x="86" y="38" width="93" height="24" rx="4" fill="#2dd4bf"/>
+    <text x="95" y="55" font-size="13" font-weight="700" fill="#0b1220">face 0.99</text>
+    <rect x="12" y="100" width="62" height="58" rx="3" fill="none" stroke="#ffffff" stroke-opacity=".28" stroke-dasharray="5 4"/>
+    <circle cx="150" cy="110" r="5" fill="#2dd4bf"/>
+  </g>
+</svg>

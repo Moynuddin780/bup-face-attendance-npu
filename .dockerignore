@@ -1,0 +1,24 @@
+# runtime data is mounted, never baked into the image
+data/
+attendance_history/
+cloud_backup/
+uploads/
+db/
+models/
+# local build / dev artefacts
+.venv/
+build/
+bin/
+*.so
+__pycache__/
+**/__pycache__/
+.pytest_cache/
+tests/
+tools/
+baseline/
+bench_report.*
+session.log
+*-session.*
+.env
+.git/
+.github/

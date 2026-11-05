@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% block title %}Add Student{% endblock %}
+{% block topbar_title %}Add Student{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div><h1>Add Student</h1><div class="breadcrumb"><a href="{{ url_for('dashboard') }}">Dashboard</a> › <a href="{{ url_for('list_students') }}">Students</a> › Add</div></div>
+</div>
+<div class="card" style="max-width:650px;">
+  <div class="card-header"><h3><i class="fa-solid fa-user-graduate"></i> New Student</h3></div>
+  <div class="card-body">
+    <div class="alert alert-info"><i class="fa-solid fa-circle-info"></i> After adding the student, you will be redirected to upload their face photos.</div>
+    <form method="POST">
+      <div class="form-grid">
+        <div class="form-group">
+          <label>Student ID</label>
+          <input class="form-control" name="student_id" placeholder="2154901129" required/>
+          <div class="form-hint">University roll/ID number</div>
+        </div>
+        <div class="form-group">
+          <label>Full Name</label>
+          <input class="form-control" name="name" placeholder="Mohammad Rahman" required/>
+        </div>
+      </div>
+      {% if not fixed_faculty %}
+      <div class="form-grid">
+        <div class="form-group">
+          <label>Faculty</label>
+          <select class="form-control" name="faculty_code" id="faculty_sel" onchange="updateDepts()" required>
+            <option value="">-- Faculty --</option>
+            {% for fcode, finfo in bup.items() %}<option value="{{ fcode }}" {% if fcode == pre.faculty %}selected{% endif %}>{{ fcode }} – {{ finfo.name }}</option>{% endfor %}
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Department</label>
+          <select class="form-control" name="dept_code" id="dept_sel" required>
+            <option value="">-- Select Faculty First --</option>
+          </select>
+        </div>
+      </div>
+      {% else %}
+      <input type="hidden" name="faculty_code" value="{{ fixed_faculty }}"/>
+      <input type="hidden" name="dept_code" value="{{ fixed_dept }}"/>
+      {% endif %}
+      <div class="form-grid">
+        <div class="form-group">
+          <label>Batch (Year)</label>
+          <input class="form-control" name="batch" placeholder="2022" value="{{ pre.batch }}" required/>
+        </div>
+        <div class="form-group">
+          <label>Section</label>
+          <select class="form-control" name="section" required>
+            <option value="A" {% if pre.section == 'A' %}selected{% endif %}>Section A</option>
+            <option value="B" {% if pre.section == 'B' %}selected{% endif %}>Section B</option>
+            {% if pre.section and pre.section not in ['A', 'B'] %}<option value="{{ pre.section }}" selected>Section {{ pre.section }}</option>{% endif %}
+          </select>
+        </div>
+      </div>
+      <div style="display:flex;gap:12px;">
+        <button type="submit" class="btn btn-primary"><i class="fa-solid fa-save"></i> Add &amp; Upload Photos</button>
+        <a href="{{ url_for('list_students', dept=pre.dept or None, batch=pre.batch or None, section=pre.section or None) }}" class="btn btn-outline">Cancel</a>
+      </div>
+    </form>
+  </div>
+</div>
+<script>
+const bup = {{ bup|tojson }};
+function updateDepts(){
+  const fac = document.getElementById('faculty_sel')?.value;
+  const ds = document.getElementById('dept_sel');
+  if(!ds) return;
+  ds.innerHTML = '<option value="">-- Select Department --</option>';
+  if(fac && bup[fac]){
+    Object.entries(bup[fac].departments).forEach(([code,info])=>{
+      ds.innerHTML += `<option value="${code}">${code} – ${info.name}</option>`;
+    });
+  }
+}
+{% if pre.faculty and not fixed_faculty %}updateDepts(); document.getElementById('dept_sel').value = {{ pre.dept|tojson }};{% endif %}
+</script>
+{% endblock %}

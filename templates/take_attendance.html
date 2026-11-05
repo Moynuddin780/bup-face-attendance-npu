@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% block title %}Take Attendance{% endblock %}
+{% block topbar_title %}Take Attendance{% endblock %}
+{% block extra_head %}
+<style>
+  .cls-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,290px),1fr));gap:16px;}
+  .cls-card{position:relative;border-left:4px solid var(--primary);transition:transform .15s,box-shadow .15s;}
+  .cls-card:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(26,60,110,.12);}
+  .cls-card.joint{border-left-color:var(--accent);background:linear-gradient(180deg,#fffdf5,#fff 60%);}
+  .cls-sec{position:absolute;top:16px;right:16px;min-width:46px;height:46px;padding:0 10px;border-radius:12px;display:flex;
+    align-items:center;justify-content:center;background:#eff6ff;color:var(--primary);font-weight:800;font-size:20px;}
+  .cls-card.joint .cls-sec{background:#fef3c7;color:#92400e;font-size:15px;}
+  .cls-meta{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;}
+</style>
+{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div><h1>Take Attendance</h1>
+    <div class="breadcrumb"><a href="{{ url_for('dashboard') }}">Dashboard</a> › Take Attendance</div>
+  </div>
+</div>
+{% if running %}
+<div class="alert alert-warning" style="display:flex;align-items:center;gap:12px;">
+  <i class="fa-solid fa-circle-play"></i>
+  <div style="flex:1;">Your class <b>{{ running.course_id }}</b> is running in <b>Room {{ running.room }}</b> (Floor {{ running.floor }}).
+    End it before starting another class — the room stays locked for other teachers until then.</div>
+  <a href="{{ url_for('live_session') }}" class="btn btn-primary btn-sm"><i class="fa-solid fa-video"></i> Return to class</a>
+</div>
+{% endif %}
+{% if classes %}
+<div class="cls-grid">
+  {% for k in classes %}
+  {% set c = k.course %}
+  <div class="card cls-card{% if k.joint %} joint{% endif %}">
+    <div class="card-body">
+      {% if k.badge %}<div class="cls-sec" title="{{ k.label }}">{{ k.badge }}</div>{% endif %}
+      <div style="font-size:12px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;font-weight:700;">{{ c.dept_code }}</div>
+      <div style="font-size:18px;font-weight:800;color:var(--primary);margin:4px 0;padding-right:60px;">{{ k.cid }}</div>
+      <div style="font-size:15px;font-weight:600;margin-bottom:8px;padding-right:60px;">{{ c.name }}</div>
+      <div class="cls-meta">
+        <span class="badge badge-info">Batch {{ c.batch }}</span>
+        {% if k.label %}<span class="badge {{ 'badge-warning' if k.joint else 'badge-primary' }}">{{ k.label }}{% if k.joint %} · joint class{% endif %}</span>{% endif %}
+        <span class="badge" style="background:#f1f5f9;color:#334155;"><i class="fa-solid fa-user-graduate"></i> {{ k.students }} student{{ 's' if k.students != 1 }}</span>
+        <span class="badge badge-warning">{{ c.faculty_code }}</span>
+      </div>
+      <form method="POST" action="{{ url_for('select_location') }}">
+        <input type="hidden" name="course_id" value="{{ k.cid }}"/>
+        <input type="hidden" name="section" value="{{ k.section }}"/>
+        <button type="submit" class="btn {{ 'btn-accent' if k.joint else 'btn-primary' }}" style="width:100%;justify-content:center;">
+          <i class="fa-solid fa-camera"></i> Start {{ 'Joint ' if k.joint }}Session
+        </button>
+      </form>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<div class="card">
+  <div class="empty-state">
+    <i class="fa-solid fa-book-open"></i>
+    <p>No courses assigned to you yet. Contact your department admin.</p>
+  </div>
+</div>
+{% endif %}
+{% endblock %}

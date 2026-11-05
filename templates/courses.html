@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% block title %}Courses{% endblock %}
+{% block topbar_title %}Courses{% endblock %}
+{% block extra_head %}
+<style>
+  .bt-jump{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;}
+  .bt-jump a{display:inline-flex;align-items:center;gap:7px;padding:7px 14px;border-radius:999px;border:1px solid var(--border);
+    background:#fff;color:#334155;font-weight:600;font-size:13px;text-decoration:none;transition:all .15s;}
+  .bt-jump a small{background:#f1f5f9;border-radius:999px;padding:2px 7px;font-size:11px;color:var(--text-muted);}
+  .bt-jump a:hover{border-color:var(--primary);color:var(--primary);}
+  .bt-card{margin-bottom:18px;scroll-margin-top:80px;}
+  .bt-card .card-header{background:linear-gradient(90deg,#eff6ff,#fff);}
+  .bt-card h3{display:flex;align-items:center;gap:10px;}
+  .bt-year{display:inline-flex;align-items:center;justify-content:center;padding:4px 12px;border-radius:9px;background:var(--primary);
+    color:#fff;font-size:15px;font-weight:800;}
+  .bt-sub{font-size:13px;color:var(--text-muted);font-weight:500;}
+</style>
+{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div><h1>Courses</h1><div class="breadcrumb"><a href="{{ url_for('dashboard') }}">Dashboard</a> › Courses</div></div>
+  {% if session.role in ['super_admin','dept_admin'] %}
+  <a href="{{ url_for('add_course') }}" class="btn btn-primary"><i class="fa-solid fa-plus"></i> Add Course</a>
+  {% endif %}
+</div>
+{% if batches %}
+{% if batches|length > 1 %}
+<div class="bt-jump">
+  {% for b, list in batches %}<a href="#batch-{{ b }}">Batch {{ b }} <small>{{ list|length }}</small></a>{% endfor %}
+</div>
+{% endif %}
+{% for b, list in batches %}
+{% set secs = sections[list[0][0]] %}
+<div class="card bt-card" id="batch-{{ b }}">
+  <div class="card-header">
+    <h3><span class="bt-year">{{ b }}</span> Batch {{ b }}
+      <span class="bt-sub">· {{ list|length }} course{{ 's' if list|length != 1 }}{% if secs %} · Section{{ 's' if secs|length > 1 }} {{ secs|join(', ') }} · {{ secs.values()|sum }} student{{ 's' if secs.values()|sum != 1 }}{% endif %}</span></h3>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Course ID</th><th>Name</th><th>Dept</th><th>Sections</th><th>Assigned Teacher</th><th>Actions</th></tr></thead>
+      <tbody>
+      {% for cid, c in list %}
+      <tr>
+        <td><b>{{ cid }}</b></td>
+        <td>{{ c.name }}</td>
+        <td><span class="badge badge-primary">{{ c.dept_code }}</span></td>
+        <td>
+          {% for x, n in sections[cid].items() %}<span class="badge badge-info" style="margin-right:4px;" title="{{ n }} students">Section {{ x }}</span>{% else %}<span style="color:#9ca3af;" title="No students in this batch yet">—</span>{% endfor %}
+        </td>
+        <td>
+          {% if c.teacher_username %}
+            {% set t = teachers.get(c.teacher_username,{}) %}
+            {{ t.get('name', c.teacher_username) }}{% if t.get('affiliation') == 'external' %} <span class="badge badge-warning" title="{{ t.get('university','') }}">Adjunct</span>{% endif %}
+          {% else %}<span style="color:#9ca3af;">Unassigned</span>{% endif %}
+        </td>
+        <td><div style="display:flex;gap:6px;">
+          {% if session.role in ['super_admin','dept_admin'] %}
+          <a href="{{ url_for('edit_course', cid=cid) }}" class="btn btn-outline btn-sm btn-icon" title="Edit course / change teacher"><i class="fa-solid fa-pen"></i></a>
+          <a href="{{ url_for('delete_course', cid=cid) }}" class="btn btn-danger btn-sm btn-icon" onclick="return confirm('Delete course?')"><i class="fa-solid fa-trash"></i></a>
+          {% endif %}
+        </div></td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endfor %}
+{% else %}
+<div class="card"><div class="empty-state"><i class="fa-solid fa-book-open"></i><p>No courses added yet.</p></div></div>
+{% endif %}
+{% endblock %}

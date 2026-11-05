@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% from "_affiliation_field.html" import affiliation_field %}
+{% block title %}Add Teacher{% endblock %}
+{% block topbar_title %}Add Teacher{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div><h1>Add Teacher</h1><div class="breadcrumb"><a href="{{ url_for('dashboard') }}">Dashboard</a> › <a href="{{ url_for('list_teachers') }}">Teachers</a> › Add</div></div>
+</div>
+<div class="card" style="max-width:620px;">
+  <div class="card-header"><h3><i class="fa-solid fa-chalkboard-user"></i> New Teacher</h3></div>
+  <div class="card-body">
+    <form method="POST">
+      <div class="form-grid">
+        <div class="form-group">
+          <label>Full Name</label>
+          <input class="form-control" name="name" placeholder="Dr. Jane Doe" value="{{ form.get('name', '') }}" required/>
+        </div>
+        <div class="form-group">
+          <label>Username</label>
+          <input class="form-control" name="username" placeholder="jdoe_cse" value="{{ form.get('username', '') }}" required/>
+        </div>
+      </div>
+      <div class="form-grid">
+        <div class="form-group">
+          <label>Password</label>
+          <input class="form-control" type="password" name="password" required/>
+        </div>
+        <div class="form-group">
+          <label>Email (optional)</label>
+          <input class="form-control" type="email" name="email" placeholder="jane@bup.edu.bd" value="{{ form.get('email', '') }}"/>
+        </div>
+      </div>
+      {{ affiliation_field(form.get('affiliation', 'bup'), form.get('university', '')) }}
+      {% if not fixed_faculty %}
+      <div class="form-grid">
+        <div class="form-group">
+          <label>Faculty</label>
+          <select class="form-control" name="faculty_code" id="faculty_sel" onchange="updateDepts()" required>
+            <option value="">-- Select Faculty --</option>
+            {% for fcode, finfo in bup.items() %}<option value="{{ fcode }}">{{ fcode }} – {{ finfo.name }}</option>{% endfor %}
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Department</label>
+          <select class="form-control" name="dept_code" id="dept_sel" required>
+            <option value="">-- Select Faculty First --</option>
+          </select>
+        </div>
+      </div>
+      {% else %}
+      <input type="hidden" name="faculty_code" value="{{ fixed_faculty }}"/>
+      <input type="hidden" name="dept_code" value="{{ fixed_dept }}"/>
+      <div class="form-group">
+        <label>Department</label>
+        <input class="form-control" value="{{ fixed_dept }}" readonly/>
+      </div>
+      {% endif %}
+      <div style="display:flex;gap:12px;">
+        <button type="submit" class="btn btn-primary"><i class="fa-solid fa-save"></i> Add Teacher</button>
+        <a href="{{ url_for('list_teachers') }}" class="btn btn-outline">Cancel</a>
+      </div>
+    </form>
+  </div>
+</div>
+<script>
+const bup = {{ bup|tojson }};
+function updateDepts(){
+  const fac = document.getElementById('faculty_sel')?.value;
+  const ds = document.getElementById('dept_sel');
+  if(!ds) return;
+  ds.innerHTML = '<option value="">-- Select Department --</option>';
+  if(fac && bup[fac]){
+    Object.entries(bup[fac].departments).forEach(([code,info])=>{
+      ds.innerHTML += `<option value="${code}">${code} – ${info.name}</option>`;
+    });
+  }
+}
+</script>
+{% endblock %}

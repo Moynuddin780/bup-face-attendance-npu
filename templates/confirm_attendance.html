@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% from "_att_toggle.html" import att_toggle, att_assets %}
+{% block title %}Confirm Attendance{% endblock %}
+{% block topbar_title %}Confirm & Submit Attendance{% endblock %}
+{% block extra_head %}{{ att_assets() }}{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div><h1>Review & Submit Attendance</h1>
+    <div class="breadcrumb"><a href="{{ url_for('dashboard') }}">Dashboard</a> › Confirm Attendance</div>
+  </div>
+</div>
+{% if test_video %}
+<div class="alert alert-warning"><i class="fa-solid fa-film"></i>
+  <span>This class ran on an uploaded <b>recorded video</b> (test). The saved record is marked as a test.</span></div>
+{% endif %}
+{% set present_count = summary|selectattr('present')|list|length %}
+{% set total = summary|length %}
+<div class="stats-grid stats-4">
+  <div class="stat-card"><div class="stat-icon" style="background:#eff6ff;"><i class="fa-solid fa-book" style="color:var(--primary);font-size:20px;"></i></div>
+    <div><div class="stat-val">{{ course_id }}</div><div class="stat-lbl">{{ course.name }} · Batch {{ course.batch }} · {{ section }}</div></div></div>
+  <div class="stat-card"><div class="stat-icon" style="background:#f0fdf4;"><i class="fa-solid fa-user-check" style="color:var(--success);font-size:20px;"></i></div>
+    <div><div class="stat-val" style="color:var(--success);" data-count="present">{{ present_count }}</div><div class="stat-lbl">Present</div></div></div>
+  <div class="stat-card"><div class="stat-icon" style="background:#fff1f2;"><i class="fa-solid fa-user-xmark" style="color:var(--danger);font-size:20px;"></i></div>
+    <div><div class="stat-val" style="color:var(--danger);" data-count="absent">{{ total - present_count }}</div><div class="stat-lbl">Absent</div></div></div>
+  <div class="stat-card"><div class="stat-icon" style="background:#fef3c7;"><i class="fa-solid fa-percent" style="color:var(--warning);font-size:20px;"></i></div>
+    <div><div class="stat-val" data-count="rate">{{ ((present_count/total*100)|round(1)) if total else 0 }}%</div><div class="stat-lbl">Rate</div></div></div>
+</div>
+
+<div class="card att-card">
+  <div class="card-header"><h3>Attendance List – Edit before submitting</h3>
+    <div style="display:flex;gap:8px;">
+      <button type="button" onclick="attMarkAll('Present')" class="btn btn-success btn-sm"><i class="fa-solid fa-check-double"></i> All Present</button>
+      <button type="button" onclick="attMarkAll('Absent')" class="btn btn-danger btn-sm"><i class="fa-solid fa-xmark"></i> All Absent</button>
+    </div>
+  </div>
+  <div class="att-toolbar">
+    <div class="att-tabs" role="tablist">
+      <button type="button" class="on" data-filter="all">All <span data-count="all">{{ total }}</span></button>
+      <button type="button" data-filter="Present"><i class="fa-solid fa-circle" style="color:var(--success);font-size:8px;"></i> Present <span data-count="present">{{ present_count }}</span></button>
+      <button type="button" data-filter="Absent"><i class="fa-solid fa-circle" style="color:var(--danger);font-size:8px;"></i> Absent <span data-count="absent">{{ total - present_count }}</span></button>
+    </div>
+    <div class="att-search"><i class="fa-solid fa-magnifying-glass"></i><input type="search" placeholder="Search name or ID" oninput="attFilter()"/></div>
+    <div class="att-rule"><i class="fa-solid fa-circle-info"></i> On camera for {{ min_present|mins }} or more → Present automatically. Change any student with the buttons.</div>
+  </div>
+  <form method="POST">
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>#</th><th>Student ID</th><th>Name</th><th>On camera</th><th>Detections</th><th style="text-align:center;">Attendance</th></tr></thead>
+        <tbody>
+        {% for r in summary|sort(attribute='name') %}
+        {% set st = 'Present' if r.present else 'Absent' %}
+        <tr class="att-row" data-status="{{ st }}" data-auto="{{ 'Present' if (r.total_time or 0) >= min_present else 'Absent' }}">
+          <td class="att-idx">{{ loop.index }}</td>
+          <td><code>{{ r.student_id }}</code></td>
+          <td><b class="att-name">{{ r.name }}</b> <span class="att-edited">edited</span></td>
+          <td>
+            <div class="att-time">{{ r.total_time|mins }}</div>
+            <div class="att-bar"><i style="width:{{ [((r.total_time or 0) / min_present * 100)|round, 100]|min }}%"></i></div>
+          </td>
+          <td>{{ r.detection_count }}</td>
+          <td style="text-align:center;">{{ att_toggle('status_' ~ r.student_id, st) }}</td>
+        </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <div class="att-empty" style="display:none;">No students match.</div>
+    <div style="padding:18px 22px;display:flex;gap:12px;border-top:1px solid var(--border);flex-wrap:wrap;">
+      <button type="submit" class="btn btn-accent" style="font-size:15px;padding:11px 28px;"><i class="fa-solid fa-save"></i> Save Attendance</button>
+      <a href="{{ url_for('take_attendance') }}" class="btn btn-outline" onclick="return confirm('Discard this class\'s attendance? It will not be saved.')">Discard</a>
+    </div>
+  </form>
+</div>
+{% endblock %}
